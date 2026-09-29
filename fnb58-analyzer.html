@@ -261,6 +261,18 @@ footer a{color:var(--accent)}
         </div>
       </div>
       <div class="set-group">
+        <h3 title="측정값 카드 아래 최소·최대·평균을 계산하는 구간입니다. ‘최근 N초’는 이동 구간, ‘기록 전체’는 적산과 같은 누적 구간입니다."><label for="inStatWin">최소·최대·평균 구간</label></h3>
+        <div class="fields">
+            <select id="inStatWin">
+              <option value="10">최근 10초</option>
+              <option value="30">최근 30초</option>
+              <option value="60">최근 1분</option>
+              <option value="300">최근 5분</option>
+              <option value="0">기록 전체 (누적)</option>
+            </select>
+        </div>
+      </div>
+      <div class="set-group">
         <h3><label for="inTheme">화면 테마</label></h3>
         <div class="fields">
             <select id="inTheme">
@@ -381,7 +393,7 @@ footer a{color:var(--accent)}
 <script>
 'use strict';
 // 버전 (헤더와 디버그 로그에 표시)
-const APP = { version: '1.0', build: 7 };
+const APP = { version: '1.0', build: 8 };
 const APP_VER = `v${APP.version} · build ${APP.build}`;
 const $ = (s) => document.querySelector(s);
 const now = () => performance.now() / 1000;
@@ -582,7 +594,7 @@ const Det = {
 Det.reset();
 
 /* ───────────── 설정 ───────────── */
-const CFG_DEF = { saveMode: 'auto', debugLog: false, theme: 'system', chartStyle: 'dual', chartView: 'vi', sps: 100, autoRec: false, startMa: 50, stopMa: 0, stopSec: 5, alarm: false, vMax: 24, iMax: 7, pMax: 168 };
+const CFG_DEF = { saveMode: 'auto', debugLog: false, theme: 'system', statWin: 10, chartStyle: 'dual', chartView: 'vi', sps: 100, autoRec: false, startMa: 50, stopMa: 0, stopSec: 5, alarm: false, vMax: 24, iMax: 7, pMax: 168 };
 const CFG = Object.assign({}, CFG_DEF, (() => { try { return JSON.parse(localStorage.getItem('fnb58-cfg') || '{}'); } catch (e) { return {}; } })());
 function saveCfg() { try { localStorage.setItem('fnb58-cfg', JSON.stringify(CFG)); } catch (e) { /* 저장 불가 환경 */ } }
 
@@ -672,21 +684,54 @@ const Alarm = {
 };
 
 /* ───────────── 샘플 입력 ───────────── */
-// 카드 아래 최소·최대·평균: 적산과 같은 구간 (기록 시작 또는 적산 초기화 이후)
+// 카드 아래 최소·최대·평균
+//  - 이동 구간 (CFG.statWin초): 들어오는 모든 샘플 중 최근 N초. 기록 일시정지와 상관없이 현재 상태를 보여준다.
+//  - 기록 전체 (CFG.statWin = 0): 적산과 같은 구간 (기록 시작 또는 적산 초기화 이후) 누적.
 const STAT_KEYS = ['v', 'i', 'p', 'dp', 'dn', 'tc', 'r'];
-function statReset() { S.stat = {}; for (const k of STAT_KEYS) S.stat[k] = { lo: Infinity, hi: -Infinity, sum: 0, n: 0 }; }
-function statAdd(k, x) { if (!Number.isFinite(x)) return; const s = S.stat[k]; if (x < s.lo) s.lo = x; if (x > s.hi) s.hi = x; s.sum += x; s.n++; }
+const STAT_WIN_MAX = 300, WIN_BUCKET = 0.1; // 가장 긴 구간 5분, 100 ms 단위로 모아 둔다
+const statBlank = () => { const o = {}; for (const k of STAT_KEYS) o[k] = { lo: Infinity, hi: -Infinity, sum: 0, n: 0 }; return o; };
+function statPut(o, k, x) { if (!Number.isFinite(x)) return; const s = o[k]; if (x < s.lo) s.lo = x; if (x > s.hi) s.hi = x; s.sum += x; s.n++; }
+function statSample(o, v, i, dp, dn, tc) {
+  statPut(o, 'v', v); statPut(o, 'i', i); statPut(o, 'p', v * i); statPut(o, 'dp', dp); statPut(o, 'dn', dn); statPut(o, 'tc', tc);
+  if (i > 0.05) statPut(o, 'r', v / i); // 전류가 거의 없을 때의 저항 값은 의미가 없어 뺀다
+}
+function statReset() { S.stat = statBlank(); }
 statReset();
+const Win = {
+  q: [], head: 0,
+  reset() { this.q = []; this.head = 0; },
+  add(t, v, i, dp, dn, tc) {
+    const key = Math.floor(t / WIN_BUCKET);
+    let b = this.q[this.q.length - 1];
+    if (!b || b.key !== key) { b = { key, t, s: statBlank() }; this.q.push(b); }
+    statSample(b.s, v, i, dp, dn, tc);
+    while (this.head < this.q.length && this.q[this.head].t < t - STAT_WIN_MAX - 1) this.head++;
+    if (this.head > 4096) { this.q = this.q.slice(this.head); this.head = 0; }
+  },
+  // 가장 최근 샘플 시각에서 sec초 이전까지의 칸을 합친다 (데이터가 멈추면 값도 그대로 멈춤)
+  stats(sec) {
+    const out = statBlank(), q = this.q;
+    if (this.head >= q.length) return out;
+    const from = q[q.length - 1].t - sec;
+    for (let j = q.length - 1; j >= this.head && q[j].t >= from; j--) {
+      for (const k of STAT_KEYS) {
+        const a = q[j].s[k], o = out[k]; if (!a.n) continue;
+        if (a.lo < o.lo) o.lo = a.lo; if (a.hi > o.hi) o.hi = a.hi; o.sum += a.sum; o.n += a.n;
+      }
+    }
+    return out;
+  },
+};
 
 function ingest(t, v, i, dp, dn, tc) {
   const L = S.latest; L.v = v; L.i = i; L.dp = dp; L.dn = dn; if (Number.isFinite(tc)) L.tc = tc;
   S.rateCount++;
+  Win.add(t, v, i, dp, dn, tc);
   Alarm.step(t, v, i);
   Auto.step(t, i);
   if (!S.recording) return;
   Det.feed(t, v, i, dp, dn);
-  statAdd('v', v); statAdd('i', i); statAdd('p', v * i); statAdd('dp', dp); statAdd('dn', dn); statAdd('tc', tc);
-  if (i > 0.05) statAdd('r', v / i); // 전류가 거의 없을 때의 저항 값은 의미가 없어 뺀다
+  statSample(S.stat, v, i, dp, dn, tc);
   const a = S.acc;
   if (a.lastT !== null) {
     const dt = t - a.lastT;
@@ -702,7 +747,7 @@ function ingest(t, v, i, dp, dn, tc) {
 function beginSession(src, label) {
   Save.finish(); // 이전 연결의 파일을 마저 쓰고 닫음
   S.store.clear(); S.events = []; Det.reset(); Dec.reset(); Auto.low = null; Alarm.reset();
-  S.acc = { wh: 0, mah: 0, dur: 0, lastT: null, since: 0 }; statReset();
+  S.acc = { wh: 0, mah: 0, dur: 0, lastT: null, since: 0 }; statReset(); Win.reset();
   S.base = now(); S.startDate = new Date();
   view.follow = true; sel = null; showSel(); evDirty = true;
   $('#accSince').textContent = '기록 시작 후';
@@ -1174,13 +1219,15 @@ function batFactor() {
 
 const STAT_DEC = { v: 3, i: 3, dp: 3, dn: 3, tc: 1 }; // 없는 키는 값 크기에 따라 자릿수를 정한다
 const fmtStat = (k, x) => !Number.isFinite(x) ? '—' : x.toFixed(STAT_DEC[k] ?? (Math.abs(x) >= 100 ? 1 : Math.abs(x) >= 10 ? 2 : 3));
+const STAT_WIN_LABEL = { 10: '최근 10초', 30: '최근 30초', 60: '최근 1분', 300: '최근 5분', 0: '기록 시작(또는 적산 초기화) 이후' };
 document.querySelectorAll('.ro .mm').forEach((el) => {
-  el.title = '기록 시작(또는 적산 초기화) 이후';
   el.innerHTML = '<span><i>최소</i><b>—</b></span><span><i>최대</i><b>—</b></span><span><i>평균</i><b>—</b></span>';
 });
 function updateStats() {
+  const all = CFG.statWin > 0 ? Win.stats(CFG.statWin) : S.stat, tip = STAT_WIN_LABEL[CFG.statWin] || '';
   document.querySelectorAll('.ro .mm').forEach((el) => {
-    const k = el.dataset.k, st = S.stat[k], b = el.querySelectorAll('b');
+    const k = el.dataset.k, st = all[k], b = el.querySelectorAll('b');
+    if (el.title !== tip) el.title = tip;
     const vals = st.n ? [st.lo, st.hi, st.sum / st.n] : [NaN, NaN, NaN];
     vals.forEach((x, n) => { const txt = fmtStat(k, x); if (b[n].textContent !== txt) b[n].textContent = txt; });
   });
@@ -1766,7 +1813,7 @@ function syncSettings() {
   $('#inAuto').checked = CFG.autoRec; $('#inAlarm').checked = CFG.alarm; $('#inDbg').checked = CFG.debugLog;
   $('#autoFields').classList.toggle('off', !CFG.autoRec);
   $('#alarmFields').classList.toggle('off', !CFG.alarm);
-  $('#inSave').value = CFG.saveMode; $('#inStyle').value = CFG.chartStyle; $('#inTheme').value = CFG.theme;
+  $('#inSave').value = CFG.saveMode; $('#inStyle').value = CFG.chartStyle; $('#inTheme').value = CFG.theme; $('#inStatWin').value = String(CFG.statWin);
   const sm = Save.mode;
   $('#setSum').textContent = `${CFG.sps} sps · 자동 기록 ${CFG.autoRec ? '켜짐' : '꺼짐'} · 알람 ${CFG.alarm ? '켜짐' : '꺼짐'} · 저장 ${sm === 'fs' ? 'PC 폴더' : sm === 'idb' ? '브라우저' : '꺼짐'}${CFG.debugLog ? ' · 디버그 로그' : ''}`;
   Save.render();
@@ -1795,6 +1842,7 @@ function applyTheme() {
   else delete document.documentElement.dataset.theme;
 }
 $('#inTheme').addEventListener('change', (e) => { CFG.theme = e.target.value; saveCfg(); applyTheme(); });
+$('#inStatWin').addEventListener('change', (e) => { CFG.statWin = +e.target.value; saveCfg(); updateStats(); });
 $('#inDbg').addEventListener('change', (e) => {
   CFG.debugLog = e.target.checked; saveCfg();
   Dbg.log('PAGE', '디버그 로그 ' + (CFG.debugLog ? '켜짐' : '꺼짐'));
@@ -2152,7 +2200,7 @@ async function loadData(text, name, events) {
 })();
 
 // 테스트용 노출
-window.__fnb = { Save, IDB, loadData, setPill, crc8, crc16x, hidCmd, BLE, USB, S, infer, Demo, CFG, Alarm, Auto, Dbg };
+window.__fnb = { Save, IDB, loadData, setPill, crc8, crc16x, hidCmd, BLE, USB, S, infer, Demo, CFG, Alarm, Auto, Dbg, Win, statReset };
 </script>
 </body>
 </html>
