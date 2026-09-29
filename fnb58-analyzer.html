@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>FNB58 충전 분석기</title>
+<script>
+// 저장된 테마를 화면을 그리기 전에 적용한다 (깜빡임 방지). 설정 변경은 아래 스크립트의 applyTheme에서.
+try { const t = JSON.parse(localStorage.getItem('fnb58-cfg') || '{}').theme; if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t; } catch (e) { /* 저장소 없음 */ }
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
@@ -257,6 +261,16 @@ footer a{color:var(--accent)}
         </div>
       </div>
       <div class="set-group">
+        <h3><label for="inTheme">화면 테마</label></h3>
+        <div class="fields">
+            <select id="inTheme">
+              <option value="system">시스템 설정 따르기</option>
+              <option value="dark">다크</option>
+              <option value="light">라이트</option>
+            </select>
+        </div>
+      </div>
+      <div class="set-group">
         <h3 title="테스터는 USB로 항상 100 sps를 보냅니다. 낮추면 그 간격의 평균값을 저장합니다. 이벤트 감지·적산·알람은 원본 데이터로 계산합니다."><label for="inSps">저장 샘플 속도</label></h3>
         <div class="fields">
             <select id="inSps">
@@ -367,7 +381,7 @@ footer a{color:var(--accent)}
 <script>
 'use strict';
 // 버전 (헤더와 디버그 로그에 표시)
-const APP = { version: '1.0', build: 6 };
+const APP = { version: '1.0', build: 7 };
 const APP_VER = `v${APP.version} · build ${APP.build}`;
 const $ = (s) => document.querySelector(s);
 const now = () => performance.now() / 1000;
@@ -568,7 +582,7 @@ const Det = {
 Det.reset();
 
 /* ───────────── 설정 ───────────── */
-const CFG_DEF = { saveMode: 'auto', debugLog: false, chartStyle: 'dual', chartView: 'vi', sps: 100, autoRec: false, startMa: 50, stopMa: 0, stopSec: 5, alarm: false, vMax: 24, iMax: 7, pMax: 168 };
+const CFG_DEF = { saveMode: 'auto', debugLog: false, theme: 'system', chartStyle: 'dual', chartView: 'vi', sps: 100, autoRec: false, startMa: 50, stopMa: 0, stopSec: 5, alarm: false, vMax: 24, iMax: 7, pMax: 168 };
 const CFG = Object.assign({}, CFG_DEF, (() => { try { return JSON.parse(localStorage.getItem('fnb58-cfg') || '{}'); } catch (e) { return {}; } })());
 function saveCfg() { try { localStorage.setItem('fnb58-cfg', JSON.stringify(CFG)); } catch (e) { /* 저장 불가 환경 */ } }
 
@@ -1752,7 +1766,7 @@ function syncSettings() {
   $('#inAuto').checked = CFG.autoRec; $('#inAlarm').checked = CFG.alarm; $('#inDbg').checked = CFG.debugLog;
   $('#autoFields').classList.toggle('off', !CFG.autoRec);
   $('#alarmFields').classList.toggle('off', !CFG.alarm);
-  $('#inSave').value = CFG.saveMode; $('#inStyle').value = CFG.chartStyle;
+  $('#inSave').value = CFG.saveMode; $('#inStyle').value = CFG.chartStyle; $('#inTheme').value = CFG.theme;
   const sm = Save.mode;
   $('#setSum').textContent = `${CFG.sps} sps · 자동 기록 ${CFG.autoRec ? '켜짐' : '꺼짐'} · 알람 ${CFG.alarm ? '켜짐' : '꺼짐'} · 저장 ${sm === 'fs' ? 'PC 폴더' : sm === 'idb' ? '브라우저' : '꺼짐'}${CFG.debugLog ? ' · 디버그 로그' : ''}`;
   Save.render();
@@ -1775,6 +1789,12 @@ $('#inAuto').addEventListener('change', (e) => {
 });
 $('#inAlarm').addEventListener('change', (e) => { CFG.alarm = e.target.checked; saveCfg(); syncSettings(); });
 $('#inStyle').addEventListener('change', (e) => { CFG.chartStyle = e.target.value; saveCfg(); syncToolbar(); dirty = true; });
+// 테마: 시스템이면 data-theme을 지워 prefers-color-scheme을 따른다. 그래프 색은 data-theme 변화를 감지해 다시 읽는다.
+function applyTheme() {
+  if (CFG.theme === 'dark' || CFG.theme === 'light') document.documentElement.dataset.theme = CFG.theme;
+  else delete document.documentElement.dataset.theme;
+}
+$('#inTheme').addEventListener('change', (e) => { CFG.theme = e.target.value; saveCfg(); applyTheme(); });
 $('#inDbg').addEventListener('change', (e) => {
   CFG.debugLog = e.target.checked; saveCfg();
   Dbg.log('PAGE', '디버그 로그 ' + (CFG.debugLog ? '켜짐' : '꺼짐'));
@@ -2110,6 +2130,7 @@ async function loadData(text, name, events) {
 
 /* ───────────── 시작 ───────────── */
 (function init() {
+  applyTheme();
   $('#appVer').textContent = APP_VER;
   Dbg.init();
   const hasHid = 'hid' in navigator, hasBle = !!navigator.bluetooth;
