@@ -85,6 +85,10 @@ button,input{font:inherit;color:inherit}
 .ro .sw{width:9px;height:9px;border-radius:2px;flex:none}
 .ro .val{font-family:var(--font-mono);font-size:25px;font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ro .val small{font-size:13px;color:var(--muted);font-weight:400;margin-left:4px;letter-spacing:0}
+.ro .mm{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px 6px;margin-top:3px;font-family:var(--font-mono);font-size:11px;font-variant-numeric:tabular-nums;color:var(--ink);line-height:1.25}
+.ro .mm span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ro .mm i{display:block;font-style:normal;font-family:var(--font-sans);font-size:10px;color:var(--muted)}
+.ro .mm b{font-weight:500}
 .ro.proto{grid-column:span 2}
 .ro.proto .val{font-family:var(--font-sans);font-size:16px;font-weight:600;letter-spacing:0;white-space:normal;line-height:1.3;padding-top:4px}
 .ro.proto .sub{font-size:11.5px;color:var(--muted)}
@@ -199,13 +203,13 @@ footer a{color:var(--accent)}
 <div id="notices"></div>
 
 <section class="readouts" aria-label="현재 측정값">
-  <div class="ro"><div class="lab"><span class="sw" style="background:var(--c-v)"></span>VBUS</div><div class="val" id="rV" style="color:var(--c-v)">—</div></div>
-  <div class="ro"><div class="lab"><span class="sw" style="background:var(--c-i)"></span>IBUS</div><div class="val" id="rI" style="color:var(--c-i)">—</div></div>
-  <div class="ro"><div class="lab"><span class="sw" style="background:var(--c-p)"></span>전력</div><div class="val" id="rP" style="color:var(--c-p)">—</div></div>
-  <div class="ro"><div class="lab"><span class="sw" style="background:var(--c-dp)"></span>D+</div><div class="val" id="rDp" style="color:var(--c-dp)">—</div></div>
-  <div class="ro"><div class="lab"><span class="sw" style="background:var(--c-dn)"></span>D−</div><div class="val" id="rDn" style="color:var(--c-dn)">—</div></div>
-  <div class="ro"><div class="lab"><span class="sw" style="background:var(--c-t)"></span>온도</div><div class="val" id="rT">—</div></div>
-  <div class="ro wide"><div class="lab"><span class="sw" style="background:var(--c-r)"></span>부하 저항</div><div class="val" id="rR">—</div></div>
+  <div class="ro"><div class="lab"><span class="sw" style="background:var(--c-v)"></span>VBUS</div><div class="val" id="rV" style="color:var(--c-v)">—</div><div class="mm" data-k="v"></div></div>
+  <div class="ro"><div class="lab"><span class="sw" style="background:var(--c-i)"></span>IBUS</div><div class="val" id="rI" style="color:var(--c-i)">—</div><div class="mm" data-k="i"></div></div>
+  <div class="ro"><div class="lab"><span class="sw" style="background:var(--c-p)"></span>전력</div><div class="val" id="rP" style="color:var(--c-p)">—</div><div class="mm" data-k="p"></div></div>
+  <div class="ro"><div class="lab"><span class="sw" style="background:var(--c-dp)"></span>D+</div><div class="val" id="rDp" style="color:var(--c-dp)">—</div><div class="mm" data-k="dp"></div></div>
+  <div class="ro"><div class="lab"><span class="sw" style="background:var(--c-dn)"></span>D−</div><div class="val" id="rDn" style="color:var(--c-dn)">—</div><div class="mm" data-k="dn"></div></div>
+  <div class="ro"><div class="lab"><span class="sw" style="background:var(--c-t)"></span>온도</div><div class="val" id="rT">—</div><div class="mm" data-k="tc"></div></div>
+  <div class="ro wide"><div class="lab"><span class="sw" style="background:var(--c-r)"></span>부하 저항</div><div class="val" id="rR">—</div><div class="mm" data-k="r"></div></div>
   <div class="ro proto"><div class="lab">충전 방식 추정</div><div class="val" id="rProto">—</div><div class="sub">D+/D− 전압과 VBUS로 추정한 값입니다</div></div>
 </section>
 
@@ -243,6 +247,15 @@ footer a{color:var(--accent)}
   <aside>
     <details class="panel" id="setPanel" open>
       <summary><h2>설정</h2><span class="aside-note" id="setSum"></span></summary>
+      <div class="set-group">
+        <h3><label for="inStyle">그래프 표현</label></h3>
+        <div class="fields">
+            <select id="inStyle">
+              <option value="dual">통합 (한 그래프 · 보기 탭)</option>
+              <option value="split">분할 (전압 · 전류 · D+/D− 세 칸)</option>
+            </select>
+        </div>
+      </div>
       <div class="set-group">
         <h3 title="테스터는 USB로 항상 100 sps를 보냅니다. 낮추면 그 간격의 평균값을 저장합니다. 이벤트 감지·적산·알람은 원본 데이터로 계산합니다."><label for="inSps">저장 샘플 속도</label></h3>
         <div class="fields">
@@ -354,7 +367,7 @@ footer a{color:var(--accent)}
 <script>
 'use strict';
 // 버전 (헤더와 디버그 로그에 표시)
-const APP = { version: '1.0', build: 5 };
+const APP = { version: '1.0', build: 6 };
 const APP_VER = `v${APP.version} · build ${APP.build}`;
 const $ = (s) => document.querySelector(s);
 const now = () => performance.now() / 1000;
@@ -555,7 +568,7 @@ const Det = {
 Det.reset();
 
 /* ───────────── 설정 ───────────── */
-const CFG_DEF = { saveMode: 'auto', debugLog: false, chartView: 'vi', sps: 100, autoRec: false, startMa: 50, stopMa: 0, stopSec: 5, alarm: false, vMax: 24, iMax: 7, pMax: 168 };
+const CFG_DEF = { saveMode: 'auto', debugLog: false, chartStyle: 'dual', chartView: 'vi', sps: 100, autoRec: false, startMa: 50, stopMa: 0, stopSec: 5, alarm: false, vMax: 24, iMax: 7, pMax: 168 };
 const CFG = Object.assign({}, CFG_DEF, (() => { try { return JSON.parse(localStorage.getItem('fnb58-cfg') || '{}'); } catch (e) { return {}; } })());
 function saveCfg() { try { localStorage.setItem('fnb58-cfg', JSON.stringify(CFG)); } catch (e) { /* 저장 불가 환경 */ } }
 
@@ -645,6 +658,12 @@ const Alarm = {
 };
 
 /* ───────────── 샘플 입력 ───────────── */
+// 카드 아래 최소·최대·평균: 적산과 같은 구간 (기록 시작 또는 적산 초기화 이후)
+const STAT_KEYS = ['v', 'i', 'p', 'dp', 'dn', 'tc', 'r'];
+function statReset() { S.stat = {}; for (const k of STAT_KEYS) S.stat[k] = { lo: Infinity, hi: -Infinity, sum: 0, n: 0 }; }
+function statAdd(k, x) { if (!Number.isFinite(x)) return; const s = S.stat[k]; if (x < s.lo) s.lo = x; if (x > s.hi) s.hi = x; s.sum += x; s.n++; }
+statReset();
+
 function ingest(t, v, i, dp, dn, tc) {
   const L = S.latest; L.v = v; L.i = i; L.dp = dp; L.dn = dn; if (Number.isFinite(tc)) L.tc = tc;
   S.rateCount++;
@@ -652,6 +671,8 @@ function ingest(t, v, i, dp, dn, tc) {
   Auto.step(t, i);
   if (!S.recording) return;
   Det.feed(t, v, i, dp, dn);
+  statAdd('v', v); statAdd('i', i); statAdd('p', v * i); statAdd('dp', dp); statAdd('dn', dn); statAdd('tc', tc);
+  if (i > 0.05) statAdd('r', v / i); // 전류가 거의 없을 때의 저항 값은 의미가 없어 뺀다
   const a = S.acc;
   if (a.lastT !== null) {
     const dt = t - a.lastT;
@@ -667,7 +688,7 @@ function ingest(t, v, i, dp, dn, tc) {
 function beginSession(src, label) {
   Save.finish(); // 이전 연결의 파일을 마저 쓰고 닫음
   S.store.clear(); S.events = []; Det.reset(); Dec.reset(); Auto.low = null; Alarm.reset();
-  S.acc = { wh: 0, mah: 0, dur: 0, lastT: null, since: 0 };
+  S.acc = { wh: 0, mah: 0, dur: 0, lastT: null, since: 0 }; statReset();
   S.base = now(); S.startDate = new Date();
   view.follow = true; sel = null; showSel(); evDirty = true;
   $('#accSince').textContent = '기록 시작 후';
@@ -1137,7 +1158,21 @@ function batFactor() {
   return (eff / 100) / nom; // Wh → Ah(배터리 기준)
 }
 
+const STAT_DEC = { v: 3, i: 3, dp: 3, dn: 3, tc: 1 }; // 없는 키는 값 크기에 따라 자릿수를 정한다
+const fmtStat = (k, x) => !Number.isFinite(x) ? '—' : x.toFixed(STAT_DEC[k] ?? (Math.abs(x) >= 100 ? 1 : Math.abs(x) >= 10 ? 2 : 3));
+document.querySelectorAll('.ro .mm').forEach((el) => {
+  el.title = '기록 시작(또는 적산 초기화) 이후';
+  el.innerHTML = '<span><i>최소</i><b>—</b></span><span><i>최대</i><b>—</b></span><span><i>평균</i><b>—</b></span>';
+});
+function updateStats() {
+  document.querySelectorAll('.ro .mm').forEach((el) => {
+    const k = el.dataset.k, st = S.stat[k], b = el.querySelectorAll('b');
+    const vals = st.n ? [st.lo, st.hi, st.sum / st.n] : [NaN, NaN, NaN];
+    vals.forEach((x, n) => { const txt = fmtStat(k, x); if (b[n].textContent !== txt) b[n].textContent = txt; });
+  });
+}
 function updateReadouts() {
+  updateStats();
   const L = S.latest;
   setVal('#rV', fmtNum(L.v, S.source === 'ble' ? 3 : 4), 'V');
   setVal('#rI', fmtNum(L.i, S.source === 'ble' ? 3 : 4), 'A');
@@ -1209,12 +1244,12 @@ if (document.fonts) document.fonts.ready.then(() => { dirty = true; });
 const VIEWS = {
   vi: { L: { unit: 'V', minSpan: 0.1, def: [4.8, 5.2], series: [['v', 'c-v', 'VBUS', 4, 0.12]] },
         R: { unit: 'A', minSpan: 0.05, def: [0, 1], zero: true, series: [['i', 'c-i', 'IBUS', 4, 0.28]] } },
-  vd: { L: { unit: 'V', minSpan: 0.1, def: [4.8, 5.2], series: [['v', 'c-v', 'VBUS', 4, 0.2]] },
-        R: { unit: 'V', minSpan: 0.2, def: [0, 3.3], zero: true, series: [['dp', 'c-dp', 'D+', 3, 0], ['dn', 'c-dn', 'D−', 3, 0]] } },
+  // VBUS와 D+/D−는 단위가 같아서 한 축에 그린다 (두 축이면 선이 겹치는 위치가 실제 값과 상관없어 헷갈림)
+  vd: { L: { unit: 'V', minSpan: 0.2, def: [0, 5.5], zero: true, series: [['v', 'c-v', 'VBUS', 4, 0.16], ['dp', 'c-dp', 'D+', 3, 0], ['dn', 'c-dn', 'D−', 3, 0]] }, R: null },
   pt: { L: { unit: 'W', minSpan: 0.1, def: [0, 1], zero: true, series: [['p', 'c-p', '전력', 3, 0.28]] },
         R: { unit: '°C', minSpan: 1, def: [20, 40], series: [['tc', 'c-t', '온도', 1, 0]] } },
 };
-const PAD = { l: 58, r: 58, t: 34, b: 26 };
+const PAD = { l: 58, r: 58, t: 34, b: 26, g: 14 }; // 그리는 방식마다 draw에서 다시 정한다
 
 function extent() { const st = S.store; return st.n ? [st.t[0], st.t[st.n - 1]] : [0, 0]; }
 function curSpan() { const [a, b] = extent(); return view.span === Infinity ? Math.max(b - a, 1) : view.span; }
@@ -1292,18 +1327,22 @@ function tracePoints(arr, e, st, i0, i1, xOf, yOf, x0, cols) {
   return segs;
 }
 
-function draw() {
+// 그리는 방식: 통합(한 그래프, 보기 탭) 또는 분할(세 칸)
+function draw() { if (CFG.chartStyle === 'split') drawSplit(); else drawDual(); }
+
+function drawDual() {
   dirty = false;
   const W = cv.clientWidth, H = cv.clientHeight, dpr = window.devicePixelRatio || 1;
   if (!W || !H) return;
   if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
-  PAD.l = PAD.r = W < 520 ? 44 : 58;
+  const VW = VIEWS[CFG.chartView] || VIEWS.vi;
+  PAD.l = W < 520 ? 44 : 58; PAD.r = VW.R ? PAD.l : 16; PAD.t = 34; PAD.b = 26;
   const pw = W - PAD.l - PAD.r, ph = H - PAD.t - PAD.b;
   if (pw < 40 || ph < 40) return;
   const [t0, t1] = viewRange();
-  const st = S.store, VW = VIEWS[CFG.chartView] || VIEWS.vi;
+  const st = S.store;
   const i0 = Math.max(0, st.lower(t0) - 1), i1 = Math.min(st.n, st.lower(t1) + 1);
   const xOf = (tt) => PAD.l + (tt - t0) / (t1 - t0) * pw;
   const cols = Math.max(1, Math.floor(pw));
@@ -1312,7 +1351,7 @@ function draw() {
 
   // 축 범위: 두 축의 칸 수를 같게 맞추되, 두 축 모두 빈 공간이 가장 적은 칸 수를 고른다
   const nMax = Math.max(3, Math.min(10, Math.floor(ph / 45))), nIdeal = Math.max(3, Math.min(8, ph / 70));
-  const raw = [VW.L, VW.R].map((ax) => {
+  const raw = [VW.L, VW.R].filter(Boolean).map((ax) => {
     const envs = ax.series.map(([key]) => envelope(st[key], st.t, i0, i1, t0, t1, cols));
     let lo = Math.min(...envs.map((e) => e.lo)), hi = Math.max(...envs.map((e) => e.hi));
     if (!Number.isFinite(lo) || !Number.isFinite(hi)) [lo, hi] = ax.def;
@@ -1446,6 +1485,145 @@ function draw() {
     ctx.fillText('데이터 없음 · 위에서 USB나 블루투스로 연결하세요', PAD.l + pw / 2, top + ph / 2);
   }
 }
+// 분할 방식: 전압, 전류, D+/D−를 세 칸에 따로 그린다
+const PANELS = [
+  { name: 'VBUS', unit: 'V', series: [['v', 'c-v', 'VBUS']], minSpan: 0.1, def: [4.8, 5.2] },
+  { name: 'IBUS', unit: 'A', series: [['i', 'c-i', 'IBUS']], minSpan: 0.05, def: [0, 1] },
+  { name: 'D+/D−', unit: 'V', series: [['dp', 'c-dp', 'D+'], ['dn', 'c-dn', 'D−']], minSpan: 0.2, def: [0, 3.3] },
+];
+function drawSplit() {
+  dirty = false;
+  Object.assign(PAD, { l: 58, r: 12, t: 8, b: 26, g: 14 });
+  const W = cv.clientWidth, H = cv.clientHeight, dpr = window.devicePixelRatio || 1;
+  if (!W || !H) return;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const pw = W - PAD.l - PAD.r, ph = (H - PAD.t - PAD.b - PAD.g * 2) / 3;
+  if (pw < 20 || ph < 20) return;
+  const [t0, t1] = viewRange();
+  const st = S.store;
+  const i0 = Math.max(0, st.lower(t0) - 1), i1 = Math.min(st.n, st.lower(t1) + 1);
+  const xOf = (tt) => PAD.l + (tt - t0) / (t1 - t0) * pw;
+  const cols = Math.max(1, Math.floor(pw));
+  ctx.font = `11px ${C.mono}`;
+  ctx.textBaseline = 'middle';
+
+  // 시간 눈금
+  let tstep = TSTEPS.find((s) => s / (t1 - t0) * pw >= 86) || 86400;
+  const bottom = PAD.t + 3 * ph + 2 * PAD.g;
+  ctx.fillStyle = C.muted; ctx.textAlign = 'center';
+  const tticks = [];
+  for (let tt = Math.ceil(t0 / tstep) * tstep; tt <= t1 + 1e-9; tt += tstep) tticks.push(tt);
+  for (const tt of tticks) ctx.fillText(fmtT(tt, tstep), xOf(tt), bottom + 14);
+
+  // 선택 구간
+  if (sel) {
+    const a = Math.min(sel.a, sel.b), b = Math.max(sel.a, sel.b);
+    ctx.fillStyle = C.sel;
+    ctx.fillRect(Math.max(PAD.l, xOf(a)), PAD.t, Math.min(PAD.l + pw, xOf(b)) - Math.max(PAD.l, xOf(a)), bottom - PAD.t);
+  }
+
+  const yMaps = [];
+  PANELS.forEach((p, k) => {
+    const top = PAD.t + k * (ph + PAD.g);
+    const envs = p.series.map(([key]) => envelope(st[key], st.t, i0, i1, t0, t1, cols));
+    let lo = Math.min(...envs.map((e) => e.lo)), hi = Math.max(...envs.map((e) => e.hi));
+    if (!Number.isFinite(lo) || !Number.isFinite(hi)) { [lo, hi] = p.def; }
+    let span = hi - lo;
+    if (span < p.minSpan) { const m = (hi + lo) / 2; lo = m - p.minSpan / 2; hi = m + p.minSpan / 2; span = p.minSpan; }
+    lo -= span * 0.08; hi += span * 0.14;
+    const yOf = (v) => top + ph - (v - lo) / (hi - lo) * ph;
+    yMaps.push({ yOf, top, lo, hi, envs });
+
+    // 격자와 세로 눈금
+    const step = niceStep((hi - lo) / Math.max(2, Math.floor(ph / 40)));
+    const dec = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
+    ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.fillStyle = C.muted; ctx.textAlign = 'right';
+    ctx.beginPath();
+    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+      const y = Math.round(yOf(v)) + 0.5;
+      ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l + pw, y);
+      ctx.fillText(v.toFixed(dec), PAD.l - 7, y);
+    }
+    for (const tt of tticks) { const x = Math.round(xOf(tt)) + 0.5; ctx.moveTo(x, top); ctx.lineTo(x, top + ph); }
+    ctx.stroke();
+    ctx.strokeStyle = C.line; ctx.strokeRect(PAD.l + 0.5, top + 0.5, pw - 1, ph - 1);
+
+    // 선
+    ctx.save(); ctx.beginPath(); ctx.rect(PAD.l, top, pw, ph); ctx.clip();
+    p.series.forEach(([key, col], si) => {
+      const arr = st[key], e = envs[si];
+      ctx.strokeStyle = C[col]; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      if (e.raw) {
+        ctx.lineWidth = 1.6; let pen = false, prevT = -Infinity;
+        for (let j = i0; j < i1; j++) {
+          const x = arr[j]; if (x !== x) { pen = false; continue; }
+          const tt = st.t[j];
+          if (!pen || tt - prevT > 1.0) ctx.moveTo(xOf(tt), yOf(x)); else ctx.lineTo(xOf(tt), yOf(x));
+          pen = true; prevT = tt;
+        }
+      } else {
+        ctx.lineWidth = 1.2; let pen = false;
+        for (let c = 0; c < cols; c++) {
+          if (e.mn[c] !== e.mn[c]) { pen = false; continue; }
+          const x = PAD.l + c + 0.5;
+          if (!pen) ctx.moveTo(x, yOf(e.fs[c])); else ctx.lineTo(x, yOf(e.fs[c]));
+          ctx.lineTo(x, yOf(e.mn[c])); ctx.lineTo(x, yOf(e.mx[c])); ctx.lineTo(x, yOf(e.ls[c]));
+          pen = true;
+        }
+      }
+      ctx.stroke();
+    });
+    ctx.restore();
+
+    // 패널 이름
+    ctx.textAlign = 'left'; ctx.font = `600 11.5px ${C.mono}`;
+    let lx = PAD.l + 9;
+    p.series.forEach(([, col, label]) => { ctx.fillStyle = C[col]; ctx.fillText(label, lx, top + 12); lx += ctx.measureText(label).width + 10; });
+    ctx.fillStyle = C.muted; ctx.font = `11px ${C.mono}`; ctx.fillText(p.unit === 'V' ? '(V)' : '(A)', lx - 2, top + 12);
+  });
+
+  // 이벤트 위치
+  ctx.save(); ctx.setLineDash([3, 4]); ctx.strokeStyle = C.evt; ctx.lineWidth = 1; ctx.beginPath();
+  for (const e of S.events) { if (e.t < t0 || e.t > t1) continue; const x = Math.round(xOf(e.t)) + 0.5; ctx.moveTo(x, PAD.t); ctx.lineTo(x, bottom); }
+  ctx.stroke(); ctx.restore();
+
+  // 십자선
+  if (hoverT !== null && st.n && hoverT >= t0 && hoverT <= t1) {
+    let j = st.lower(hoverT);
+    if (j >= st.n) j = st.n - 1; if (j > 0 && Math.abs(st.t[j - 1] - hoverT) < Math.abs(st.t[j] - hoverT)) j--;
+    const x = Math.round(xOf(st.t[j])) + 0.5;
+    ctx.strokeStyle = C.cross; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, bottom); ctx.stroke();
+    ctx.font = `500 11.5px ${C.mono}`;
+    PANELS.forEach((p, k) => {
+      const { yOf, top } = yMaps[k];
+      const parts = [];
+      p.series.forEach(([key, col, label]) => {
+        const v = st[key][j]; if (v !== v) return;
+        ctx.fillStyle = C[col]; ctx.beginPath(); ctx.arc(x, yOf(v), 3.2, 0, Math.PI * 2); ctx.fill();
+        parts.push([`${label} ${v.toFixed(key === 'v' || key === 'i' ? 4 : 3)}`, col]);
+      });
+      if (!parts.length) return;
+      const widths = parts.map(([s]) => ctx.measureText(s).width);
+      const bw = widths.reduce((a, b) => a + b, 0) + 14 * parts.length + 4;
+      let bx = x + 10; if (bx + bw > PAD.l + pw - 4) bx = x - 10 - bw;
+      ctx.fillStyle = C.surface; ctx.globalAlpha = 0.92; ctx.fillRect(bx, top + 4, bw, 19); ctx.globalAlpha = 1;
+      ctx.strokeStyle = C.line; ctx.strokeRect(bx + 0.5, top + 4.5, bw - 1, 18);
+      let tx = bx + 8; ctx.textAlign = 'left';
+      parts.forEach(([s, col], n) => { ctx.fillStyle = C[col]; ctx.fillText(s, tx, top + 14); tx += widths[n] + 14; });
+    });
+    const lab = fmtT(st.t[j], 0.01), lw = ctx.measureText(lab).width + 12;
+    ctx.fillStyle = C.ink; ctx.fillRect(x - lw / 2, bottom + 4, lw, 18);
+    ctx.fillStyle = C.surface; ctx.textAlign = 'center'; ctx.fillText(lab, x, bottom + 13.5);
+  }
+
+  if (!st.n) {
+    ctx.fillStyle = C.muted; ctx.textAlign = 'center'; ctx.font = `13px ${C.mono}`;
+    ctx.fillText('데이터 없음 · 위에서 USB나 블루투스로 연결하세요', PAD.l + pw / 2, PAD.t + ph * 1.5 + PAD.g);
+  }
+}
 function loop() { if (dirty) draw(); requestAnimationFrame(loop); }
 new ResizeObserver(() => { dirty = true; }).observe(cv);
 requestAnimationFrame(loop);
@@ -1466,6 +1644,7 @@ function syncToolbar() {
   document.querySelectorAll('#spanSeg button').forEach((b) => b.setAttribute('aria-pressed', String(view.follow && String(view.span) === b.dataset.span)));
   document.querySelectorAll('#modeSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
   document.querySelectorAll('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === CFG.chartView)));
+  $('#viewSeg').hidden = CFG.chartStyle === 'split'; // 보기 탭은 통합 그래프에서만 쓴다
   $('#btnLive').setAttribute('aria-pressed', String(view.follow));
   $('#btnLive').textContent = view.follow ? '● 실시간' : '○ 실시간으로';
   $('#btnLive').classList.toggle('primary', !view.follow);
@@ -1573,7 +1752,7 @@ function syncSettings() {
   $('#inAuto').checked = CFG.autoRec; $('#inAlarm').checked = CFG.alarm; $('#inDbg').checked = CFG.debugLog;
   $('#autoFields').classList.toggle('off', !CFG.autoRec);
   $('#alarmFields').classList.toggle('off', !CFG.alarm);
-  $('#inSave').value = CFG.saveMode;
+  $('#inSave').value = CFG.saveMode; $('#inStyle').value = CFG.chartStyle;
   const sm = Save.mode;
   $('#setSum').textContent = `${CFG.sps} sps · 자동 기록 ${CFG.autoRec ? '켜짐' : '꺼짐'} · 알람 ${CFG.alarm ? '켜짐' : '꺼짐'} · 저장 ${sm === 'fs' ? 'PC 폴더' : sm === 'idb' ? '브라우저' : '꺼짐'}${CFG.debugLog ? ' · 디버그 로그' : ''}`;
   Save.render();
@@ -1595,6 +1774,7 @@ $('#inAuto').addEventListener('change', (e) => {
   syncSettings();
 });
 $('#inAlarm').addEventListener('change', (e) => { CFG.alarm = e.target.checked; saveCfg(); syncSettings(); });
+$('#inStyle').addEventListener('change', (e) => { CFG.chartStyle = e.target.value; saveCfg(); syncToolbar(); dirty = true; });
 $('#inDbg').addEventListener('change', (e) => {
   CFG.debugLog = e.target.checked; saveCfg();
   Dbg.log('PAGE', '디버그 로그 ' + (CFG.debugLog ? '켜짐' : '꺼짐'));
@@ -1608,7 +1788,7 @@ $('#inSave').addEventListener('change', (e) => {
 });
 $('#btnPickDir').onclick = () => Save.pickDir();
 $('#btnGrant').onclick = () => Save.grant();
-$('#btnAccReset').onclick = () => { S.acc.wh = 0; S.acc.mah = 0; S.acc.dur = 0; S.acc.since = sessionNow(); $('#accSince').textContent = fmtT(S.acc.since, 1) + ' 이후'; addEvent(sessionNow(), 'info', '적산 초기화', ''); };
+$('#btnAccReset').onclick = () => { S.acc.wh = 0; S.acc.mah = 0; S.acc.dur = 0; statReset(); S.acc.since = sessionNow(); $('#accSince').textContent = fmtT(S.acc.since, 1) + ' 이후'; addEvent(sessionNow(), 'info', '적산 초기화', ''); };
 let clearArm = null;
 $('#btnClear').onclick = () => {
   const b = $('#btnClear');
