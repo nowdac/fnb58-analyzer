@@ -212,6 +212,11 @@ footer a{color:var(--accent)}
 <main class="work">
   <section class="scope" aria-label="그래프">
     <div class="tools">
+      <div class="seg" id="viewSeg" role="group" aria-label="그래프 종류">
+        <button type="button" data-view="vi">전압·전류</button>
+        <button type="button" data-view="vd">전압·D+/D−</button>
+        <button type="button" data-view="pt">전력·온도</button>
+      </div>
       <div class="seg" id="spanSeg" role="group" aria-label="표시 시간">
         <button type="button" data-span="10">10초</button>
         <button type="button" data-span="60" aria-pressed="true">1분</button>
@@ -231,7 +236,7 @@ footer a{color:var(--accent)}
       <button class="btn small" id="btnLive" type="button" aria-pressed="true">● 실시간</button>
       <button class="btn small" id="btnRec" type="button">기록 일시정지</button>
     </div>
-    <div class="canvas-box"><canvas id="scope" aria-label="전압, 전류, D+/D− 그래프"></canvas></div>
+    <div class="canvas-box"><canvas id="scope" aria-label="측정값 그래프"></canvas></div>
     <div class="hint">휠이나 ＋/－로 확대, 드래그로 이동합니다. <kbd>Shift</kbd>+드래그 또는 ‘구간 선택’으로 구간을 고르면 오른쪽에 통계가 나옵니다. 더블클릭하면 실시간 보기로 돌아갑니다. 점선은 감지된 이벤트 위치입니다.</div>
   </section>
 
@@ -349,7 +354,7 @@ footer a{color:var(--accent)}
 <script>
 'use strict';
 // 버전 (헤더와 디버그 로그에 표시)
-const APP = { version: '1.0', build: 4 };
+const APP = { version: '1.0', build: 5 };
 const APP_VER = `v${APP.version} · build ${APP.build}`;
 const $ = (s) => document.querySelector(s);
 const now = () => performance.now() / 1000;
@@ -423,17 +428,17 @@ class Store {
   clear() {
     this.cap = 1 << 16; this.n = 0;
     this.t = new Float64Array(this.cap);
-    for (const k of ['v', 'i', 'dp', 'dn', 'tc']) this[k] = new Float32Array(this.cap);
+    for (const k of ['v', 'i', 'p', 'dp', 'dn', 'tc']) this[k] = new Float32Array(this.cap);
   }
   grow() {
     const c = this.cap * 2;
-    for (const k of ['t', 'v', 'i', 'dp', 'dn', 'tc']) { const a = new this[k].constructor(c); a.set(this[k]); this[k] = a; }
+    for (const k of ['t', 'v', 'i', 'p', 'dp', 'dn', 'tc']) { const a = new this[k].constructor(c); a.set(this[k]); this[k] = a; }
     this.cap = c;
   }
   push(t, v, i, dp, dn, tc) {
     if (this.n >= this.cap) this.grow();
     const n = this.n;
-    this.t[n] = t; this.v[n] = v; this.i[n] = i; this.dp[n] = dp; this.dn[n] = dn; this.tc[n] = tc;
+    this.t[n] = t; this.v[n] = v; this.i[n] = i; this.p[n] = v * i; this.dp[n] = dp; this.dn[n] = dn; this.tc[n] = tc;
     this.n = n + 1;
   }
   lower(x) { let lo = 0, hi = this.n; while (lo < hi) { const m = (lo + hi) >> 1; if (this.t[m] < x) lo = m + 1; else hi = m; } return lo; }
@@ -550,7 +555,7 @@ const Det = {
 Det.reset();
 
 /* ───────────── 설정 ───────────── */
-const CFG_DEF = { saveMode: 'auto', debugLog: false, sps: 100, autoRec: false, startMa: 50, stopMa: 0, stopSec: 5, alarm: false, vMax: 24, iMax: 7, pMax: 168 };
+const CFG_DEF = { saveMode: 'auto', debugLog: false, chartView: 'vi', sps: 100, autoRec: false, startMa: 50, stopMa: 0, stopSec: 5, alarm: false, vMax: 24, iMax: 7, pMax: 168 };
 const CFG = Object.assign({}, CFG_DEF, (() => { try { return JSON.parse(localStorage.getItem('fnb58-cfg') || '{}'); } catch (e) { return {}; } })());
 function saveCfg() { try { localStorage.setItem('fnb58-cfg', JSON.stringify(CFG)); } catch (e) { /* 저장 불가 환경 */ } }
 
@@ -1191,7 +1196,7 @@ const view = { follow: true, span: 60, t0: 0, t1: 60 };
 let C = {};
 function readColors() {
   const cs = getComputedStyle(document.documentElement);
-  for (const k of ['ink', 'muted', 'line', 'grid', 'axis', 'surface', 'surface-2', 'c-v', 'c-i', 'c-dp', 'c-dn', 'sel', 'evt', 'cross']) C[k] = cs.getPropertyValue('--' + k).trim();
+  for (const k of ['ink', 'muted', 'line', 'grid', 'axis', 'surface', 'surface-2', 'c-v', 'c-i', 'c-p', 'c-t', 'c-dp', 'c-dn', 'sel', 'evt', 'cross']) C[k] = cs.getPropertyValue('--' + k).trim();
   C.mono = cs.getPropertyValue('--font-mono').trim(); dirty = true;
 }
 readColors();
@@ -1199,12 +1204,17 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors
 new MutationObserver(readColors).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 if (document.fonts) document.fonts.ready.then(() => { dirty = true; });
 
-const PANELS = [
-  { name: 'VBUS', unit: 'V', series: [['v', 'c-v', 'VBUS']], minSpan: 0.1, def: [4.8, 5.2] },
-  { name: 'IBUS', unit: 'A', series: [['i', 'c-i', 'IBUS']], minSpan: 0.05, def: [0, 1] },
-  { name: 'D+/D−', unit: 'V', series: [['dp', 'c-dp', 'D+'], ['dn', 'c-dn', 'D−']], minSpan: 0.2, def: [0, 3.3] },
-];
-const PAD = { l: 58, r: 12, t: 8, b: 26, g: 14 };
+// 그래프 보기: 한 그래프에 왼쪽·오른쪽 두 축을 둔다
+// 계열: [키, 색 변수, 이름, 소수 자릿수, 아래 채우기 진하기 (0이면 채우지 않음)]
+const VIEWS = {
+  vi: { L: { unit: 'V', minSpan: 0.1, def: [4.8, 5.2], series: [['v', 'c-v', 'VBUS', 4, 0.12]] },
+        R: { unit: 'A', minSpan: 0.05, def: [0, 1], zero: true, series: [['i', 'c-i', 'IBUS', 4, 0.28]] } },
+  vd: { L: { unit: 'V', minSpan: 0.1, def: [4.8, 5.2], series: [['v', 'c-v', 'VBUS', 4, 0.2]] },
+        R: { unit: 'V', minSpan: 0.2, def: [0, 3.3], zero: true, series: [['dp', 'c-dp', 'D+', 3, 0], ['dn', 'c-dn', 'D−', 3, 0]] } },
+  pt: { L: { unit: 'W', minSpan: 0.1, def: [0, 1], zero: true, series: [['p', 'c-p', '전력', 3, 0.28]] },
+        R: { unit: '°C', minSpan: 1, def: [20, 40], series: [['tc', 'c-t', '온도', 1, 0]] } },
+};
+const PAD = { l: 58, r: 58, t: 34, b: 26 };
 
 function extent() { const st = S.store; return st.n ? [st.t[0], st.t[st.n - 1]] : [0, 0]; }
 function curSpan() { const [a, b] = extent(); return view.span === Infinity ? Math.max(b - a, 1) : view.span; }
@@ -1217,6 +1227,21 @@ function viewRange() {
 }
 
 function niceStep(x) { const e = Math.pow(10, Math.floor(Math.log10(x))), f = x / e; return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * e; }
+// lo~hi를 n칸의 보기 좋은 눈금으로 덮는다. 두 축의 칸 수를 같게 해서 격자선을 함께 쓴다.
+function axisFit(lo, hi, n) {
+  let step = niceStep((hi - lo) / n), a = 0;
+  for (let k = 0; k < 10; k++) {
+    a = Math.floor(lo / step + 1e-9) * step;
+    if (a + n * step >= hi - 1e-9) break;
+    step = niceStep(step * 1.5);
+  }
+  return { lo: a, hi: a + n * step, step };
+}
+function rgba(hex, a) {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex || ''); if (!m) return hex;
+  const h = m[1].length === 3 ? m[1].replace(/./g, (c) => c + c) : m[1], n = parseInt(h, 16);
+  return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;
+}
 const TSTEPS = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 14400, 28800, 86400];
 function fmtT(s, step) {
   const neg = s < 0; s = Math.abs(s);
@@ -1245,6 +1270,27 @@ function envelope(arr, t, i0, i1, t0, t1, cols) {
   Object.assign(res, { mn, mx, fs, ls });
   return res;
 }
+// 선을 이어 그릴 점 목록 (끊긴 구간마다 따로). 점이 많으면 픽셀 칸마다 처음·최소·최대·마지막만 쓴다.
+function tracePoints(arr, e, st, i0, i1, xOf, yOf, x0, cols) {
+  const segs = []; let cur = null;
+  if (e.raw) {
+    let prevT = -Infinity;
+    for (let j = i0; j < i1; j++) {
+      const v = arr[j]; if (v !== v) { cur = null; continue; }
+      const tt = st.t[j];
+      if (!cur || tt - prevT > 1.0) { cur = []; segs.push(cur); }
+      cur.push(xOf(tt), yOf(v)); prevT = tt;
+    }
+  } else {
+    for (let c = 0; c < cols; c++) {
+      if (e.mn[c] !== e.mn[c]) { cur = null; continue; }
+      if (!cur) { cur = []; segs.push(cur); }
+      const x = x0 + c + 0.5;
+      cur.push(x, yOf(e.fs[c]), x, yOf(e.mn[c]), x, yOf(e.mx[c]), x, yOf(e.ls[c]));
+    }
+  }
+  return segs;
+}
 
 function draw() {
   dirty = false;
@@ -1253,129 +1299,151 @@ function draw() {
   if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
-  const pw = W - PAD.l - PAD.r, ph = (H - PAD.t - PAD.b - PAD.g * 2) / 3;
-  if (pw < 20 || ph < 20) return;
+  PAD.l = PAD.r = W < 520 ? 44 : 58;
+  const pw = W - PAD.l - PAD.r, ph = H - PAD.t - PAD.b;
+  if (pw < 40 || ph < 40) return;
   const [t0, t1] = viewRange();
-  const st = S.store;
+  const st = S.store, VW = VIEWS[CFG.chartView] || VIEWS.vi;
   const i0 = Math.max(0, st.lower(t0) - 1), i1 = Math.min(st.n, st.lower(t1) + 1);
   const xOf = (tt) => PAD.l + (tt - t0) / (t1 - t0) * pw;
   const cols = Math.max(1, Math.floor(pw));
-  ctx.font = `11px ${C.mono}`;
+  const top = PAD.t, bottom = PAD.t + ph, right = PAD.l + pw;
   ctx.textBaseline = 'middle';
 
-  // 시간 눈금
-  let tstep = TSTEPS.find((s) => s / (t1 - t0) * pw >= 86) || 86400;
-  const bottom = PAD.t + 3 * ph + 2 * PAD.g;
-  ctx.fillStyle = C.muted; ctx.textAlign = 'center';
+  // 축 범위: 두 축의 칸 수를 같게 맞추되, 두 축 모두 빈 공간이 가장 적은 칸 수를 고른다
+  const nMax = Math.max(3, Math.min(10, Math.floor(ph / 45))), nIdeal = Math.max(3, Math.min(8, ph / 70));
+  const raw = [VW.L, VW.R].map((ax) => {
+    const envs = ax.series.map(([key]) => envelope(st[key], st.t, i0, i1, t0, t1, cols));
+    let lo = Math.min(...envs.map((e) => e.lo)), hi = Math.max(...envs.map((e) => e.hi));
+    if (!Number.isFinite(lo) || !Number.isFinite(hi)) [lo, hi] = ax.def;
+    const fromZero = ax.zero && lo >= 0;
+    if (fromZero) lo = 0;
+    let span = hi - lo;
+    if (span < ax.minSpan) {
+      if (fromZero) hi = ax.minSpan; else { const m = (hi + lo) / 2; lo = m - ax.minSpan / 2; hi = m + ax.minSpan / 2; }
+      span = ax.minSpan;
+    }
+    hi += span * 0.1; if (!fromZero) lo -= span * 0.06;
+    return { ax, envs, lo, hi };
+  });
+  let n = 3, best = Infinity;
+  for (let k = 3; k <= nMax; k++) {
+    const score = raw.reduce((s, r) => { const f = axisFit(r.lo, r.hi, k); return s + (f.hi - f.lo) / (r.hi - r.lo) - 1; }, 0) + 0.03 * Math.abs(k - nIdeal);
+    if (score < best) { best = score; n = k; }
+  }
+  const axes = raw.map(({ ax, envs, lo, hi }) => {
+    const f = axisFit(lo, hi, n);
+    return Object.assign({}, ax, f, { envs, yOf: (v) => bottom - (v - f.lo) / (f.hi - f.lo) * ph });
+  });
+
+  // 플롯 바탕과 격자 (점선)
+  ctx.fillStyle = C['surface-2']; ctx.fillRect(PAD.l, top, pw, ph);
+  const tstep = TSTEPS.find((s) => s / (t1 - t0) * pw >= 90) || 86400;
   const tticks = [];
   for (let tt = Math.ceil(t0 / tstep) * tstep; tt <= t1 + 1e-9; tt += tstep) tticks.push(tt);
+  ctx.save(); ctx.setLineDash([2, 4]); ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.beginPath();
+  for (let k = 1; k < n; k++) { const y = Math.round(top + ph * k / n) + 0.5; ctx.moveTo(PAD.l, y); ctx.lineTo(right, y); }
+  for (const tt of tticks) { const x = Math.round(xOf(tt)) + 0.5; ctx.moveTo(x, top); ctx.lineTo(x, bottom); }
+  ctx.stroke(); ctx.restore();
+
+  // 눈금 글자: 왼쪽·오른쪽 축은 계열 색으로 (계열이 둘이면 회색)
+  ctx.font = `11px ${C.mono}`;
+  const axCol = (ax) => (ax.series.length === 1 ? C[ax.series[0][1]] : C.muted);
+  axes.forEach((ax, side) => {
+    const dec = Math.max(0, -Math.floor(Math.log10(ax.step) + 1e-9));
+    ctx.fillStyle = axCol(ax); ctx.textAlign = side ? 'left' : 'right';
+    const x = side ? right + 8 : PAD.l - 8;
+    for (let k = 0; k <= n; k++) ctx.fillText((ax.lo + ax.step * k).toFixed(dec), x, bottom - ph * k / n);
+    ctx.font = `600 11px ${C.mono}`; ctx.fillText(ax.unit, x, top - 12); ctx.font = `11px ${C.mono}`;
+  });
+  ctx.fillStyle = C.muted; ctx.textAlign = 'center';
   for (const tt of tticks) ctx.fillText(fmtT(tt, tstep), xOf(tt), bottom + 14);
 
   // 선택 구간
   if (sel) {
-    const a = Math.min(sel.a, sel.b), b = Math.max(sel.a, sel.b);
-    ctx.fillStyle = C.sel;
-    ctx.fillRect(Math.max(PAD.l, xOf(a)), PAD.t, Math.min(PAD.l + pw, xOf(b)) - Math.max(PAD.l, xOf(a)), bottom - PAD.t);
+    const a = Math.max(PAD.l, xOf(Math.min(sel.a, sel.b))), b = Math.min(right, xOf(Math.max(sel.a, sel.b)));
+    if (b > a) { ctx.fillStyle = C.sel; ctx.fillRect(a, top, b - a, ph); }
   }
 
-  const yMaps = [];
-  PANELS.forEach((p, k) => {
-    const top = PAD.t + k * (ph + PAD.g);
-    const envs = p.series.map(([key]) => envelope(st[key], st.t, i0, i1, t0, t1, cols));
-    let lo = Math.min(...envs.map((e) => e.lo)), hi = Math.max(...envs.map((e) => e.hi));
-    if (!Number.isFinite(lo) || !Number.isFinite(hi)) { [lo, hi] = p.def; }
-    let span = hi - lo;
-    if (span < p.minSpan) { const m = (hi + lo) / 2; lo = m - p.minSpan / 2; hi = m + p.minSpan / 2; span = p.minSpan; }
-    lo -= span * 0.08; hi += span * 0.14;
-    const yOf = (v) => top + ph - (v - lo) / (hi - lo) * ph;
-    yMaps.push({ yOf, top, lo, hi, envs });
-
-    // 격자와 세로 눈금
-    const step = niceStep((hi - lo) / Math.max(2, Math.floor(ph / 40)));
-    const dec = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
-    ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.fillStyle = C.muted; ctx.textAlign = 'right';
-    ctx.beginPath();
-    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
-      const y = Math.round(yOf(v)) + 0.5;
-      ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l + pw, y);
-      ctx.fillText(v.toFixed(dec), PAD.l - 7, y);
-    }
-    for (const tt of tticks) { const x = Math.round(xOf(tt)) + 0.5; ctx.moveTo(x, top); ctx.lineTo(x, top + ph); }
-    ctx.stroke();
-    ctx.strokeStyle = C.line; ctx.strokeRect(PAD.l + 0.5, top + 0.5, pw - 1, ph - 1);
-
-    // 선
-    ctx.save(); ctx.beginPath(); ctx.rect(PAD.l, top, pw, ph); ctx.clip();
-    p.series.forEach(([key, col], si) => {
-      const arr = st[key], e = envs[si];
-      ctx.strokeStyle = C[col]; ctx.lineJoin = 'round';
-      ctx.beginPath();
-      if (e.raw) {
-        ctx.lineWidth = 1.6; let pen = false, prevT = -Infinity;
-        for (let j = i0; j < i1; j++) {
-          const x = arr[j]; if (x !== x) { pen = false; continue; }
-          const tt = st.t[j];
-          if (!pen || tt - prevT > 1.0) ctx.moveTo(xOf(tt), yOf(x)); else ctx.lineTo(xOf(tt), yOf(x));
-          pen = true; prevT = tt;
-        }
-      } else {
-        ctx.lineWidth = 1.2; let pen = false;
-        for (let c = 0; c < cols; c++) {
-          if (e.mn[c] !== e.mn[c]) { pen = false; continue; }
-          const x = PAD.l + c + 0.5;
-          if (!pen) ctx.moveTo(x, yOf(e.fs[c])); else ctx.lineTo(x, yOf(e.fs[c]));
-          ctx.lineTo(x, yOf(e.mn[c])); ctx.lineTo(x, yOf(e.mx[c])); ctx.lineTo(x, yOf(e.ls[c]));
-          pen = true;
-        }
-      }
-      ctx.stroke();
-    });
-    ctx.restore();
-
-    // 패널 이름
-    ctx.textAlign = 'left'; ctx.font = `600 11.5px ${C.mono}`;
-    let lx = PAD.l + 9;
-    p.series.forEach(([, col, label]) => { ctx.fillStyle = C[col]; ctx.fillText(label, lx, top + 12); lx += ctx.measureText(label).width + 10; });
-    ctx.fillStyle = C.muted; ctx.font = `11px ${C.mono}`; ctx.fillText(p.unit === 'V' ? '(V)' : '(A)', lx - 2, top + 12);
+  // 계열: 채우기를 먼저 모두 그리고, 그 위에 선을 그린다
+  ctx.save(); ctx.beginPath(); ctx.rect(PAD.l, top, pw, ph); ctx.clip();
+  const drawn = [];
+  for (const ax of axes) ax.series.forEach(([key, col, , , fill], si) => {
+    const e = ax.envs[si];
+    drawn.push({ key, col, e, fill, yOf: ax.yOf, segs: tracePoints(st[key], e, st, i0, i1, xOf, ax.yOf, PAD.l, cols) });
   });
+  for (const d of drawn) {
+    if (!d.fill) continue;
+    const g = ctx.createLinearGradient(0, top, 0, bottom);
+    g.addColorStop(0, rgba(C[d.col], d.fill)); g.addColorStop(1, rgba(C[d.col], 0.01));
+    ctx.fillStyle = g;
+    for (const p of d.segs) {
+      ctx.beginPath(); ctx.moveTo(p[0], bottom);
+      for (let k = 0; k < p.length; k += 2) ctx.lineTo(p[k], p[k + 1]);
+      ctx.lineTo(p[p.length - 2], bottom); ctx.closePath(); ctx.fill();
+    }
+  }
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  for (const d of drawn) {
+    ctx.strokeStyle = C[d.col]; ctx.lineWidth = d.e.raw ? 1.7 : 1.3;
+    ctx.beginPath();
+    for (const p of d.segs) { ctx.moveTo(p[0], p[1]); for (let k = 2; k < p.length; k += 2) ctx.lineTo(p[k], p[k + 1]); }
+    ctx.stroke();
+  }
+  ctx.restore();
 
   // 이벤트 위치
   ctx.save(); ctx.setLineDash([3, 4]); ctx.strokeStyle = C.evt; ctx.lineWidth = 1; ctx.beginPath();
-  for (const e of S.events) { if (e.t < t0 || e.t > t1) continue; const x = Math.round(xOf(e.t)) + 0.5; ctx.moveTo(x, PAD.t); ctx.lineTo(x, bottom); }
+  for (const e of S.events) { if (e.t < t0 || e.t > t1) continue; const x = Math.round(xOf(e.t)) + 0.5; ctx.moveTo(x, top); ctx.lineTo(x, bottom); }
   ctx.stroke(); ctx.restore();
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(PAD.l + 0.5, top + 0.5, pw - 1, ph - 1);
 
-  // 십자선
-  if (hoverT !== null && st.n && hoverT >= t0 && hoverT <= t1) {
-    let j = st.lower(hoverT);
+  // 표시할 샘플: 마우스를 올린 곳, 아니면 가장 최근 값
+  let j = -1;
+  const hovering = hoverT !== null && st.n && hoverT >= t0 && hoverT <= t1;
+  if (hovering) {
+    j = st.lower(hoverT);
     if (j >= st.n) j = st.n - 1; if (j > 0 && Math.abs(st.t[j - 1] - hoverT) < Math.abs(st.t[j] - hoverT)) j--;
+  } else if (st.n) j = st.n - 1;
+  const dot = (x, y, col, halo) => {
+    if (halo) { ctx.fillStyle = rgba(C[col], 0.22); ctx.beginPath(); ctx.arc(x, y, 6.5, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = C[col]; ctx.beginPath(); ctx.arc(x, y, 3.2, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = C.surface; ctx.lineWidth = 1.2; ctx.stroke();
+  };
+  if (hovering) {
     const x = Math.round(xOf(st.t[j])) + 0.5;
-    ctx.strokeStyle = C.cross; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, bottom); ctx.stroke();
-    ctx.font = `500 11.5px ${C.mono}`;
-    PANELS.forEach((p, k) => {
-      const { yOf, top } = yMaps[k];
-      const parts = [];
-      p.series.forEach(([key, col, label]) => {
-        const v = st[key][j]; if (v !== v) return;
-        ctx.fillStyle = C[col]; ctx.beginPath(); ctx.arc(x, yOf(v), 3.2, 0, Math.PI * 2); ctx.fill();
-        parts.push([`${label} ${v.toFixed(key === 'v' || key === 'i' ? 4 : 3)}`, col]);
-      });
-      if (!parts.length) return;
-      const widths = parts.map(([s]) => ctx.measureText(s).width);
-      const bw = widths.reduce((a, b) => a + b, 0) + 14 * parts.length + 4;
-      let bx = x + 10; if (bx + bw > PAD.l + pw - 4) bx = x - 10 - bw;
-      ctx.fillStyle = C.surface; ctx.globalAlpha = 0.92; ctx.fillRect(bx, top + 4, bw, 19); ctx.globalAlpha = 1;
-      ctx.strokeStyle = C.line; ctx.strokeRect(bx + 0.5, top + 4.5, bw - 1, 18);
-      let tx = bx + 8; ctx.textAlign = 'left';
-      parts.forEach(([s, col], n) => { ctx.fillStyle = C[col]; ctx.fillText(s, tx, top + 14); tx += widths[n] + 14; });
-    });
+    ctx.strokeStyle = C.cross; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
+    for (const d of drawn) { const v = st[d.key][j]; if (v === v) dot(x, d.yOf(v), d.col, false); }
+    ctx.font = `500 11px ${C.mono}`;
     const lab = fmtT(st.t[j], 0.01), lw = ctx.measureText(lab).width + 12;
     ctx.fillStyle = C.ink; ctx.fillRect(x - lw / 2, bottom + 4, lw, 18);
     ctx.fillStyle = C.surface; ctx.textAlign = 'center'; ctx.fillText(lab, x, bottom + 13.5);
+  } else if (view.follow && j >= 0 && st.t[j] >= t0 && st.t[j] <= t1) {
+    // 실시간 보기에서는 선 끝에 현재 값 표시
+    const x = xOf(st.t[j]);
+    for (const d of drawn) { const v = st[d.key][j]; if (v === v) dot(x, d.yOf(v), d.col, true); }
+  }
+
+  // 범례: 계열 이름과 값 (마우스를 올리면 그 시점 값)
+  const items = [];
+  for (const ax of axes) for (const [key, col, label, dec] of ax.series) {
+    const v = j >= 0 ? st[key][j] : NaN;
+    items.push({ col, full: `${label} ${v === v ? v.toFixed(dec) : '—'} ${ax.unit}`, short: `${label} ${v === v ? v.toFixed(dec) : '—'}` });
+  }
+  ctx.font = `500 12px ${C.mono}`; ctx.textAlign = 'left';
+  const fits = items.reduce((w, it) => w + 31 + ctx.measureText(it.full).width, 0) <= W - PAD.l;
+  if (!fits) ctx.font = `500 11px ${C.mono}`;
+  let lx = fits ? PAD.l : 4;
+  for (const it of items) {
+    const txt = fits ? it.full : it.short;
+    ctx.fillStyle = C[it.col]; ctx.beginPath(); ctx.arc(lx + 4, 13, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = C.ink; ctx.fillText(txt, lx + 12, 13.5);
+    lx += 12 + ctx.measureText(txt).width + (fits ? 19 : 12);
   }
 
   if (!st.n) {
     ctx.fillStyle = C.muted; ctx.textAlign = 'center'; ctx.font = `13px ${C.mono}`;
-    ctx.fillText('데이터 없음 · 위에서 USB나 블루투스로 연결하세요', PAD.l + pw / 2, PAD.t + ph * 1.5 + PAD.g);
+    ctx.fillText('데이터 없음 · 위에서 USB나 블루투스로 연결하세요', PAD.l + pw / 2, top + ph / 2);
   }
 }
 function loop() { if (dirty) draw(); requestAnimationFrame(loop); }
@@ -1397,6 +1465,7 @@ function zoom(f, anchor) {
 function syncToolbar() {
   document.querySelectorAll('#spanSeg button').forEach((b) => b.setAttribute('aria-pressed', String(view.follow && String(view.span) === b.dataset.span)));
   document.querySelectorAll('#modeSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+  document.querySelectorAll('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === CFG.chartView)));
   $('#btnLive').setAttribute('aria-pressed', String(view.follow));
   $('#btnLive').textContent = view.follow ? '● 실시간' : '○ 실시간으로';
   $('#btnLive').classList.toggle('primary', !view.follow);
@@ -1435,6 +1504,7 @@ cv.addEventListener('pointerleave', () => { if (!drag) { hoverT = null; dirty = 
 cv.addEventListener('wheel', (e) => { e.preventDefault(); zoom(Math.exp(e.deltaY * 0.0015), xToT(e.offsetX)); }, { passive: false });
 cv.addEventListener('dblclick', () => { view.follow = true; syncToolbar(); dirty = true; });
 
+document.querySelectorAll('#viewSeg button').forEach((b) => b.onclick = () => { CFG.chartView = b.dataset.view; saveCfg(); syncToolbar(); dirty = true; });
 document.querySelectorAll('#spanSeg button').forEach((b) => b.onclick = () => { view.follow = true; view.span = b.dataset.span === 'Infinity' ? Infinity : +b.dataset.span; syncToolbar(); dirty = true; });
 document.querySelectorAll('#modeSeg button').forEach((b) => b.onclick = () => { mode = b.dataset.mode; syncToolbar(); });
 $('#zoomIn').onclick = () => zoom(1 / 1.6);
