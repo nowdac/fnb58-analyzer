@@ -280,7 +280,12 @@ footer a{color:var(--accent)}
         <div class="saveinfo">
           <div id="saveDirRow">폴더 <b id="saveDir">선택 안 됨</b> <button class="linkbtn" id="btnPickDir" type="button">폴더 선택</button> <button class="linkbtn" id="btnGrant" type="button" hidden>권한 허용</button></div>
           <div id="saveStatus"></div>
-          <div id="dbgStatus"></div>
+        </div>
+      </div>
+      <div class="set-group">
+        <h3 title="연결 과정, 보낸 명령, 받은 원본 데이터를 자동 저장 폴더에 fnb58_debug_날짜_시각.log로 씁니다. 켜면 이 페이지를 연 뒤의 기록부터 모두 씁니다."><label class="check" for="inDbg"><input type="checkbox" id="inDbg">디버그 로그</label></h3>
+        <div class="saveinfo" id="dbgInfo" hidden>
+          <div><span id="dbgStatus"></span> <button class="linkbtn" id="btnDbg" type="button">지금까지 받기</button></div>
         </div>
       </div>
     </details>
@@ -322,9 +327,7 @@ footer a{color:var(--accent)}
       <div class="row" style="margin-top:0">
         <button class="btn small" id="btnCsv" type="button">측정값 CSV 저장</button>
         <button class="btn small" id="btnEvCsv" type="button">이벤트 CSV 저장</button>
-        <button class="btn small" id="btnOpen" type="button" title="측정값 파일과 _events.csv를 함께 고르면 이벤트도 같이 불러옵니다">CSV 열기</button>
-        <button class="btn small" id="btnDbg" type="button">디버그 로그 저장</button>
-        <button class="btn small danger" id="btnClear" type="button">전체 지우기</button>
+        <button class="btn small" id="btnOpen" type="button" title="측정값 파일과 _events.csv를 함께 고르면 이벤트도 같이 불러옵니다">CSV 열기</button>        <button class="btn small danger" id="btnClear" type="button">전체 지우기</button>
         <input type="file" id="fileIn" accept=".csv,text/csv" multiple hidden>
       </div>
     </section>
@@ -346,7 +349,7 @@ footer a{color:var(--accent)}
 <script>
 'use strict';
 // 버전 (헤더와 디버그 로그에 표시)
-const APP = { version: '1.0', build: 3 };
+const APP = { version: '1.0', build: 4 };
 const APP_VER = `v${APP.version} · build ${APP.build}`;
 const $ = (s) => document.querySelector(s);
 const now = () => performance.now() / 1000;
@@ -394,7 +397,7 @@ const Dbg = {
     }, 1000);
   },
   async flush() {
-    if (this.busy || !this.name || !this.pend.length) return;
+    if (!CFG.debugLog || this.busy || !this.name || !this.pend.length) return; // 꺼져 있으면 메모리에만 모아 둔다
     if (Save.mode !== 'fs' || !Save.dir || Save.perm !== 'granted') return;
     this.busy = true;
     try {
@@ -547,7 +550,7 @@ const Det = {
 Det.reset();
 
 /* ───────────── 설정 ───────────── */
-const CFG_DEF = { saveMode: 'auto', sps: 100, autoRec: false, startMa: 50, stopMa: 0, stopSec: 5, alarm: false, vMax: 24, iMax: 7, pMax: 168 };
+const CFG_DEF = { saveMode: 'auto', debugLog: false, sps: 100, autoRec: false, startMa: 50, stopMa: 0, stopSec: 5, alarm: false, vMax: 24, iMax: 7, pMax: 168 };
 const CFG = Object.assign({}, CFG_DEF, (() => { try { return JSON.parse(localStorage.getItem('fnb58-cfg') || '{}'); } catch (e) { return {}; } })());
 function saveCfg() { try { localStorage.setItem('fnb58-cfg', JSON.stringify(CFG)); } catch (e) { /* 저장 불가 환경 */ } }
 
@@ -1497,12 +1500,12 @@ $('#btnRec').onclick = () => {
 const SET_INPUTS = { inSps: 'sps', inStart: 'startMa', inStop: 'stopMa', inStopSec: 'stopSec', inVmax: 'vMax', inImax: 'iMax', inPmax: 'pMax' };
 function syncSettings() {
   for (const [id, key] of Object.entries(SET_INPUTS)) $('#' + id).value = CFG[key];
-  $('#inAuto').checked = CFG.autoRec; $('#inAlarm').checked = CFG.alarm;
+  $('#inAuto').checked = CFG.autoRec; $('#inAlarm').checked = CFG.alarm; $('#inDbg').checked = CFG.debugLog;
   $('#autoFields').classList.toggle('off', !CFG.autoRec);
   $('#alarmFields').classList.toggle('off', !CFG.alarm);
   $('#inSave').value = CFG.saveMode;
   const sm = Save.mode;
-  $('#setSum').textContent = `${CFG.sps} sps · 자동 기록 ${CFG.autoRec ? '켜짐' : '꺼짐'} · 알람 ${CFG.alarm ? '켜짐' : '꺼짐'} · 저장 ${sm === 'fs' ? 'PC 폴더' : sm === 'idb' ? '브라우저' : '꺼짐'}`;
+  $('#setSum').textContent = `${CFG.sps} sps · 자동 기록 ${CFG.autoRec ? '켜짐' : '꺼짐'} · 알람 ${CFG.alarm ? '켜짐' : '꺼짐'} · 저장 ${sm === 'fs' ? 'PC 폴더' : sm === 'idb' ? '브라우저' : '꺼짐'}${CFG.debugLog ? ' · 디버그 로그' : ''}`;
   Save.render();
   setPill();
 }
@@ -1522,6 +1525,13 @@ $('#inAuto').addEventListener('change', (e) => {
   syncSettings();
 });
 $('#inAlarm').addEventListener('change', (e) => { CFG.alarm = e.target.checked; saveCfg(); syncSettings(); });
+$('#inDbg').addEventListener('change', (e) => {
+  CFG.debugLog = e.target.checked; saveCfg();
+  Dbg.log('PAGE', '디버그 로그 ' + (CFG.debugLog ? '켜짐' : '꺼짐'));
+  // 켤 때 폴더 권한이 없으면 바로 요청한다 (체크 클릭이 사용자 동작이라 가능)
+  if (CFG.debugLog && Save.mode === 'fs' && (!Save.dir || Save.perm !== 'granted')) { if (Save.dir) Save.grant(); else Save.pickDir(); }
+  syncSettings();
+});
 $('#inSave').addEventListener('change', (e) => {
   CFG.saveMode = e.target.value; saveCfg(); syncSettings();
   if (Save.cur) notice('저장 위치 변경은 다음 연결부터 적용됩니다. 지금 기록은 원래 위치에 계속 저장합니다.', 'info');
@@ -1747,9 +1757,12 @@ const Save = {
     }
     $('#saveStatus').textContent = s;
     $('#saveStatus').classList.toggle('err', !!(c && c.err));
-    $('#dbgStatus').textContent = m === 'fs' && this.dir && this.perm === 'granted' && Dbg.bytes
-      ? `${Dbg.name} · ${fmtBytes(Dbg.bytes)}` + (Dbg.wErr ? ` · 오류: ${Dbg.wErr}` : '')
-      : Dbg.wErr ? `디버그 로그 오류: ${Dbg.wErr}` : '';
+    $('#dbgInfo').hidden = !CFG.debugLog;
+    let ds = '';
+    if (m !== 'fs') ds = 'PC 폴더에 저장할 때만 파일로 씁니다';
+    else if (!this.dir || this.perm !== 'granted') ds = '폴더 권한을 받으면 파일로 씁니다';
+    else ds = `${Dbg.name} · ${fmtBytes(Dbg.bytes)}` + (Dbg.wErr ? ` · 오류: ${Dbg.wErr}` : '');
+    $('#dbgStatus').textContent = ds;
     $('#dbgStatus').classList.toggle('err', !!Dbg.wErr);
     if (!this.fsOK || this.fsBlocked) {
       $('#optAuto').textContent = 'PC 폴더 (미지원 → 브라우저)';
