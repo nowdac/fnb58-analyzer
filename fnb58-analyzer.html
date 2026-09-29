@@ -1,0 +1,1874 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FNB58 충전 분석기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#ECEEF0; --surface:#FFFFFF; --surface-2:#F4F5F7; --ink:#131A21; --muted:#5B6874;
+  --line:#D5DAE0; --grid:#E6EAEE; --axis:#7D8894;
+  --accent:#0B6B75; --accent-ink:#FFFFFF; --accent-soft:rgba(11,107,117,.10);
+  --c-v:#B8760A; --c-i:#15803D; --c-p:#7C3AED; --c-dp:#D13B3B; --c-dn:#2360C8; --c-t:#8B5E34; --c-r:#475569;
+  --ok:#15803D; --warn:#B45309; --bad:#C0352B;
+  --sel:rgba(11,107,117,.13); --evt:rgba(11,107,117,.50); --cross:rgba(19,26,33,.45);
+  --font-sans:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1216; --surface:#141B21; --surface-2:#1A2229; --ink:#E2E7EC; --muted:#8B98A4;
+    --line:#26313A; --grid:#1E2830; --axis:#6E7A86;
+    --accent:#46B7C1; --accent-ink:#062529; --accent-soft:rgba(70,183,193,.15);
+    --c-v:#F0B429; --c-i:#4ADE80; --c-p:#B794F6; --c-dp:#FF6B6B; --c-dn:#60A5FA; --c-t:#D6A36B; --c-r:#A3B1BF;
+    --ok:#4ADE80; --warn:#FBBF24; --bad:#F87171;
+    --sel:rgba(70,183,193,.17); --evt:rgba(70,183,193,.55); --cross:rgba(226,231,236,.45);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1216; --surface:#141B21; --surface-2:#1A2229; --ink:#E2E7EC; --muted:#8B98A4;
+  --line:#26313A; --grid:#1E2830; --axis:#6E7A86;
+  --accent:#46B7C1; --accent-ink:#062529; --accent-soft:rgba(70,183,193,.15);
+  --c-v:#F0B429; --c-i:#4ADE80; --c-p:#B794F6; --c-dp:#FF6B6B; --c-dn:#60A5FA; --c-t:#D6A36B; --c-r:#A3B1BF;
+  --ok:#4ADE80; --warn:#FBBF24; --bad:#F87171;
+  --sel:rgba(70,183,193,.17); --evt:rgba(70,183,193,.55); --cross:rgba(226,231,236,.45);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font-sans);padding-inline:16px;padding-block:0 28px;-webkit-font-smoothing:antialiased}
+[hidden]{display:none!important}
+.wrap{max-width:1480px;margin:0 auto}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding-block:16px 14px}
+.brand{display:flex;flex-direction:column;gap:2px;margin-right:auto;min-width:0}
+.brand h1{margin:0;font-size:19px;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.brand p{margin:0;color:var(--muted);font-size:12.5px}
+.conn{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:7px;font-weight:500;font-size:13px;line-height:1;padding:9px 13px;border:1px solid var(--line);background:var(--surface);border-radius:8px;cursor:pointer;white-space:nowrap}
+.btn:hover:not(:disabled){border-color:var(--axis)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:hover:not(:disabled){filter:brightness(1.08)}
+.btn:disabled{opacity:.42;cursor:not-allowed}
+.btn.small{padding:6px 10px;font-size:12.5px}
+.btn.danger{color:var(--bad)}
+.btn svg{width:15px;height:15px;flex:none}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:2px;font-size:12.5px}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:12.5px;font-weight:500;white-space:nowrap}
+.pill .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.pill[data-state="live"] .dot{background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 25%,transparent)}
+.pill[data-state="demo"] .dot{background:var(--accent)}
+.pill[data-state="busy"] .dot{background:var(--warn)}
+.pill[data-state="paused"] .dot{background:var(--warn)}
+.pill .rate{font-family:var(--font-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+
+.notice{margin:0 0 12px;padding:10px 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:13px;display:flex;gap:12px;align-items:flex-start}
+.notice[data-kind="bad"]{border-color:color-mix(in srgb,var(--bad) 45%,var(--line));background:color-mix(in srgb,var(--bad) 7%,var(--surface))}
+.notice[data-kind="warn"]{border-color:color-mix(in srgb,var(--warn) 45%,var(--line));background:color-mix(in srgb,var(--warn) 7%,var(--surface))}
+.notice span{flex:1}
+.notice{align-items:center;flex-wrap:wrap}
+.notice .x{background:none;border:0;color:var(--muted);cursor:pointer;padding:0 2px;font-size:16px;line-height:1}
+
+/* readouts */
+.readouts{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.ro{background:var(--surface);padding:10px 14px 11px;display:flex;flex-direction:column;gap:3px;min-width:0;box-shadow:1px 0 0 var(--line),0 1px 0 var(--line)}
+.ro .lab{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;font-weight:500}
+.ro .sw{width:9px;height:9px;border-radius:2px;flex:none}
+.ro .val{font-family:var(--font-mono);font-size:25px;font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ro .val small{font-size:13px;color:var(--muted);font-weight:400;margin-left:4px;letter-spacing:0}
+.ro.proto{grid-column:span 2}
+.ro.proto .val{font-family:var(--font-sans);font-size:16px;font-weight:600;letter-spacing:0;white-space:normal;line-height:1.3;padding-top:4px}
+.ro.proto .sub{font-size:11.5px;color:var(--muted)}
+@media (max-width:560px){.readouts{grid-template-columns:1fr 1fr}.ro.proto,.ro.wide{grid-column:1/-1}.ro .val{font-size:21px}}
+
+/* workspace */
+.work{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;margin-top:16px;align-items:start}
+@media (max-width:1040px){.work{grid-template-columns:minmax(0,1fr)}}
+.scope{background:var(--surface);border:1px solid var(--line);border-radius:10px;min-width:0}
+.tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.tools .grow{flex:1}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:transparent;padding:7px 10px;font-size:12.5px;cursor:pointer;border-right:1px solid var(--line);white-space:nowrap}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.canvas-box{position:relative;height:clamp(430px,64vh,780px)}
+#scope{display:block;width:100%;height:100%;touch-action:pan-y;cursor:grab}
+#scope.selecting{cursor:crosshair}
+#scope.dragging{cursor:grabbing}
+.hint{padding:8px 12px 10px;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}
+.hint kbd{font-family:var(--font-mono);font-size:11px;padding:1px 5px;border:1px solid var(--line);border-radius:4px;background:var(--surface-2)}
+
+aside{display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.panel h2{margin:0 0 10px;font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:8px}
+.panel h2 .aside-note{margin-left:auto;font-weight:400;font-size:12px;color:var(--muted)}
+dl.kv{display:grid;grid-template-columns:1fr auto;gap:5px 12px;margin:0}
+dl.kv dt{color:var(--muted);font-size:13px}
+dl.kv dd{margin:0;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;text-align:right}
+dl.kv dd.big{font-size:18px;font-weight:500}
+.sep{height:1px;background:var(--line);margin:12px 0}
+.fields{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:end}
+.fields label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.fields input{width:84px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);font-family:var(--font-mono);font-size:13px}
+.result{margin-top:10px;display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.result span{font-size:13px;color:var(--muted)}
+.result b{font-family:var(--font-mono);font-size:20px;font-weight:500;font-variant-numeric:tabular-nums}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.empty{color:var(--muted);font-size:13px;margin:0}
+
+.events{list-style:none;margin:0;padding:0;max-height:300px;overflow:auto;display:flex;flex-direction:column}
+.events li button{display:grid;grid-template-columns:64px 44px 1fr;gap:8px;align-items:baseline;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:7px 2px;cursor:pointer;font-size:12.5px}
+.events li:last-child button{border-bottom:0}
+.events li button:hover{background:var(--surface-2)}
+.events .et{font-family:var(--font-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.chip{font-size:10.5px;font-weight:600;padding:1px 0;border-radius:4px;text-align:center;letter-spacing:.02em}
+.chip.qc{background:color-mix(in srgb,var(--c-dp) 14%,transparent);color:var(--c-dp)}
+.chip.vbus{background:color-mix(in srgb,var(--c-v) 16%,transparent);color:var(--c-v)}
+.chip.load{background:color-mix(in srgb,var(--c-i) 15%,transparent);color:var(--c-i)}
+.chip.proto{background:color-mix(in srgb,var(--c-dn) 14%,transparent);color:var(--c-dn)}
+.chip.info{background:var(--surface-2);color:var(--muted)}
+.events .ed{min-width:0}
+.events .ed small{display:block;color:var(--muted);font-family:var(--font-mono);font-size:11.5px}
+
+details.panel>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px}
+details.panel>summary::-webkit-details-marker{display:none}
+details.panel>summary h2{margin:0;white-space:nowrap;flex:none}
+details.panel>summary::after{content:'▾';color:var(--muted);transition:transform .15s}
+details.panel:not([open])>summary::after{transform:rotate(-90deg)}
+details.panel>summary .aside-note{margin-left:auto;font-size:11.5px;color:var(--muted);text-align:right;line-height:1.35;min-width:0}
+details.panel[open]>summary{margin-bottom:12px}
+.set-group{padding-block:12px;border-top:1px solid var(--line)}
+.set-group:first-of-type{border-top:0;padding-top:0}
+.set-group h3{margin:0 0 8px;font-size:12.5px;font-weight:600}
+.check{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--ink)}
+.check input{accent-color:var(--accent);width:15px;height:15px;margin:0}
+.note{margin:8px 0 0;font-size:12px;color:var(--muted);line-height:1.5}
+.fields label{max-width:100%}
+.fields select{max-width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);font-family:var(--font-mono);font-size:13px}
+.fields.off{opacity:.5}
+.ro.alarm{background:color-mix(in srgb,var(--bad) 14%,var(--surface))}
+.chip.alarm{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
+
+.saveinfo{margin-top:10px;font-size:12.5px;display:flex;flex-direction:column;gap:4px}
+#saveStatus,#dbgStatus{color:var(--muted);word-break:break-all}
+#saveStatus.err,#dbgStatus.err{color:var(--bad)}
+.saved{list-style:none;margin:0;padding:0;max-height:320px;overflow:auto}
+.saved li{padding:9px 0;border-bottom:1px solid var(--line)}
+.saved li:last-child{border-bottom:0}
+.sv-name{font-family:var(--font-mono);font-size:12.5px;font-weight:500;word-break:break-all}
+.sv-meta{font-size:12px;color:var(--muted)}
+
+footer{margin-top:18px;color:var(--muted);font-size:12px;line-height:1.6;max-width:90ch}
+footer a{color:var(--accent)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="brand">
+    <h1>FNB58 충전 분석기</h1>
+    <p>USB · 블루투스 실시간 측정과 QC 협상 분석</p>
+  </div>
+  <div class="conn">
+    <button class="btn primary" id="btnUsb" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v14"/><path d="m8 6 4-4 4 4"/><circle cx="12" cy="19" r="3"/><path d="M7 10v2l5 3 5-3v-2"/></svg>
+      USB 연결</button>
+    <button class="btn primary" id="btnBle" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
+      블루투스 연결</button>
+    <button class="btn" id="btnDemo" type="button">데모</button>
+    <button class="btn" id="btnDisc" type="button" hidden>연결 해제</button>
+    <span class="pill" id="pill" data-state="demo" role="status"><span class="dot"></span><span id="pillText">데모 데이터</span><span class="rate" id="pillRate"></span></span>
+  </div>
+</header>
+
+<div id="notices"></div>
+
+<section class="readouts" aria-label="현재 측정값">
+  <div class="ro"><div class="lab"><span class="sw" style="background:var(--c-v)"></span>VBUS</div><div class="val" id="rV" style="color:var(--c-v)">—</div></div>
+  <div class="ro"><div class="lab"><span class="sw" style="background:var(--c-i)"></span>IBUS</div><div class="val" id="rI" style="color:var(--c-i)">—</div></div>
+  <div class="ro"><div class="lab"><span class="sw" style="background:var(--c-p)"></span>전력</div><div class="val" id="rP" style="color:var(--c-p)">—</div></div>
+  <div class="ro"><div class="lab"><span class="sw" style="background:var(--c-dp)"></span>D+</div><div class="val" id="rDp" style="color:var(--c-dp)">—</div></div>
+  <div class="ro"><div class="lab"><span class="sw" style="background:var(--c-dn)"></span>D−</div><div class="val" id="rDn" style="color:var(--c-dn)">—</div></div>
+  <div class="ro"><div class="lab"><span class="sw" style="background:var(--c-t)"></span>온도</div><div class="val" id="rT">—</div></div>
+  <div class="ro wide"><div class="lab"><span class="sw" style="background:var(--c-r)"></span>부하 저항</div><div class="val" id="rR">—</div></div>
+  <div class="ro proto"><div class="lab">충전 방식 추정</div><div class="val" id="rProto">—</div><div class="sub">D+/D− 전압과 VBUS로 추정한 값입니다</div></div>
+</section>
+
+<main class="work">
+  <section class="scope" aria-label="그래프">
+    <div class="tools">
+      <div class="seg" id="spanSeg" role="group" aria-label="표시 시간">
+        <button type="button" data-span="10">10초</button>
+        <button type="button" data-span="60" aria-pressed="true">1분</button>
+        <button type="button" data-span="300">5분</button>
+        <button type="button" data-span="1800">30분</button>
+        <button type="button" data-span="Infinity">전체</button>
+      </div>
+      <div class="seg" role="group" aria-label="확대">
+        <button type="button" id="zoomIn" aria-label="확대">＋</button>
+        <button type="button" id="zoomOut" aria-label="축소">－</button>
+      </div>
+      <div class="seg" id="modeSeg" role="group" aria-label="드래그 동작">
+        <button type="button" data-mode="pan" aria-pressed="true">이동</button>
+        <button type="button" data-mode="select">구간 선택</button>
+      </div>
+      <span class="grow"></span>
+      <button class="btn small" id="btnLive" type="button" aria-pressed="true">● 실시간</button>
+      <button class="btn small" id="btnRec" type="button">기록 일시정지</button>
+    </div>
+    <div class="canvas-box"><canvas id="scope" aria-label="전압, 전류, D+/D− 그래프"></canvas></div>
+    <div class="hint">휠이나 ＋/－로 확대, 드래그로 이동합니다. <kbd>Shift</kbd>+드래그 또는 ‘구간 선택’으로 구간을 고르면 오른쪽에 통계가 나옵니다. 더블클릭하면 실시간 보기로 돌아갑니다. 점선은 감지된 이벤트 위치입니다.</div>
+  </section>
+
+  <aside>
+    <details class="panel" id="setPanel" open>
+      <summary><h2>설정</h2><span class="aside-note" id="setSum"></span></summary>
+      <div class="set-group">
+        <h3>기록 속도</h3>
+        <div class="fields">
+          <label for="inSps">저장 샘플 속도
+            <select id="inSps">
+              <option value="100">100 sps (원본)</option>
+              <option value="50">50 sps</option>
+              <option value="20">20 sps</option>
+              <option value="10">10 sps</option>
+              <option value="5">5 sps</option>
+              <option value="2">2 sps</option>
+              <option value="1">1 sps</option>
+            </select></label>
+        </div>
+        <p class="note">테스터는 USB로 항상 100 sps를 보냅니다. 속도를 낮추면 그 간격의 평균값으로 저장해 그래프와 CSV가 가벼워집니다. 이벤트 감지, 적산, 알람은 속도와 상관없이 원본 데이터로 계산합니다.</p>
+      </div>
+      <div class="set-group">
+        <h3><label class="check" for="inAuto"><input type="checkbox" id="inAuto">자동 기록</label></h3>
+        <div class="fields" id="autoFields">
+          <label for="inStart">시작 전류 (mA)<input id="inStart" type="number" step="10" min="0" value="50"></label>
+          <label for="inStop">정지 전류 (mA)<input id="inStop" type="number" step="10" min="0" value="0"></label>
+          <label for="inStopSec">정지 시간 (초)<input id="inStopSec" type="number" step="1" min="1" value="5"></label>
+        </div>
+        <p class="note">전류가 시작 전류 이상이 되면 기록을 시작하고, 정지 전류 미만이 정지 시간 동안 이어지면 멈춥니다. 정지 전류가 0이면 자동으로 멈추지 않습니다.</p>
+      </div>
+      <div class="set-group">
+        <h3><label class="check" for="inAlarm"><input type="checkbox" id="inAlarm">알람</label></h3>
+        <div class="fields" id="alarmFields">
+          <label for="inVmax">VBUS 최대 (V)<input id="inVmax" type="number" step="0.1" min="0" value="24"></label>
+          <label for="inImax">IBUS 최대 (A)<input id="inImax" type="number" step="0.1" min="0" value="7"></label>
+          <label for="inPmax">전력 최대 (W)<input id="inPmax" type="number" step="1" min="0" value="168"></label>
+        </div>
+        <p class="note">값을 넘으면 해당 측정값이 빨갛게 표시되고, 경고음과 함께 이벤트 목록에 남습니다.</p>
+      </div>
+      <div class="set-group">
+        <h3>자동 저장</h3>
+        <div class="fields">
+          <label for="inSave">저장 위치
+            <select id="inSave">
+              <option value="auto" id="optAuto">PC 폴더 (안 되면 브라우저)</option>
+              <option value="idb">브라우저 안에 저장</option>
+              <option value="off">끄기</option>
+            </select></label>
+        </div>
+        <div class="saveinfo">
+          <div id="saveDirRow">저장 폴더: <b id="saveDir">선택 안 됨</b> <button class="linkbtn" id="btnPickDir" type="button">폴더 선택</button> <button class="linkbtn" id="btnGrant" type="button" hidden>권한 허용</button></div>
+          <div id="saveStatus"></div>
+          <div id="dbgStatus"></div>
+        </div>
+        <p class="note">연결할 때마다 연결 시각으로 <code>fnb58_날짜_시각.csv</code>(측정값)와 <code>_events.csv</code>(이벤트)를 새로 만들고, 기록하는 동안 계속 이어 씁니다. 브라우저에 저장한 기록은 아래 목록에서 다시 열거나 CSV로 받을 수 있습니다.</p>
+      </div>
+    </details>
+
+    <section class="panel" aria-labelledby="hAcc">
+      <h2 id="hAcc">적산 <span class="aside-note" id="accSince">기록 시작 후</span></h2>
+      <dl class="kv">
+        <dt>에너지</dt><dd class="big" id="aWh">0.000 Wh</dd>
+        <dt>용량 (USB 전압 기준)</dt><dd id="aMah">0.0 mAh</dd>
+        <dt>기록 시간</dt><dd id="aDur">0:00:00</dd>
+        <dt>샘플 수</dt><dd id="aN">0</dd>
+      </dl>
+      <div class="sep"></div>
+      <div class="fields">
+        <label for="inNom">배터리 공칭 전압 (V)<input id="inNom" type="number" step="0.01" min="3" max="4.5" value="3.85"></label>
+        <label for="inEff">충전 효율 (%)<input id="inEff" type="number" step="1" min="50" max="100" value="87"></label>
+      </div>
+      <div class="result"><span>배터리에 들어간 양 (추정)</span><b id="aBat">0 mAh</b></div>
+      <div class="row"><button class="btn small" id="btnAccReset" type="button">적산 초기화</button></div>
+    </section>
+
+    <section class="panel" aria-labelledby="hSel">
+      <h2 id="hSel">구간 분석</h2>
+      <p class="empty" id="selEmpty">그래프에서 ‘구간 선택’ 후 드래그하면 그 구간의 평균, 최소·최대, 에너지를 계산합니다.</p>
+      <div id="selBody" hidden>
+        <dl class="kv" id="selKv"></dl>
+        <div class="row"><button class="btn small" id="btnSelZoom" type="button">이 구간 확대</button><button class="btn small" id="btnSelClear" type="button">선택 해제</button></div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="hEv">
+      <h2 id="hEv">이벤트 <span class="aside-note" id="evCount">0건</span></h2>
+      <p class="empty" id="evEmpty">QC 전압 요청 펄스, VBUS 레벨 변화, 전류 시작·중지, 충전 방식 변화를 자동으로 기록합니다.</p>
+      <ul class="events" id="evList"></ul>
+    </section>
+
+    <section class="panel" aria-labelledby="hFile">
+      <h2 id="hFile">기록 파일</h2>
+      <div class="row" style="margin-top:0">
+        <button class="btn small" id="btnCsv" type="button">측정값 CSV 저장</button>
+        <button class="btn small" id="btnEvCsv" type="button">이벤트 CSV 저장</button>
+        <button class="btn small" id="btnOpen" type="button">CSV 열기</button>
+        <button class="btn small" id="btnDbg" type="button">디버그 로그 저장</button>
+        <button class="btn small danger" id="btnClear" type="button">전체 지우기</button>
+        <input type="file" id="fileIn" accept=".csv,text/csv" multiple hidden>
+      </div>
+      <p class="note">열 때 측정값 파일과 <code>_events.csv</code>를 함께 고르면 이벤트도 같이 불러옵니다.</p>
+    </section>
+
+    <section class="panel" id="savedPanel" aria-labelledby="hSaved" hidden>
+      <h2 id="hSaved">브라우저에 저장된 기록 <span class="aside-note" id="savedCount"></span></h2>
+      <ul class="saved" id="savedList"></ul>
+    </section>
+  </aside>
+</main>
+
+<footer>
+  USB는 PC용 크롬·엣지(WebHID), 블루투스는 크롬·엣지와 안드로이드 크롬(Web Bluetooth)에서 동작합니다. USB로 연결할 때는 제조사 USB Tester 앱을 먼저 닫아야 합니다.
+  블루투스는 USB보다 해상도(mV·mA 단위)와 샘플 속도가 낮습니다.
+  통신 형식은 공개된 분석 결과(<a href="https://github.com/baryluk/fnirsi-usb-power-data-logger" target="_blank" rel="noopener">baryluk/fnirsi-usb-power-data-logger</a>, <a href="https://github.com/yeckel/OpenFNB58" target="_blank" rel="noopener">yeckel/OpenFNB58</a>, <a href="https://github.com/pgodlews/fnirsi-fnb58-web-monitor" target="_blank" rel="noopener">pgodlews/fnirsi-fnb58-web-monitor</a>)를 따릅니다. 검증되지 않은 고속충전 트리거 명령은 넣지 않았습니다.
+</footer>
+</div>
+
+<script>
+'use strict';
+const $ = (s) => document.querySelector(s);
+const now = () => performance.now() / 1000;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const hex = (u8, max = 64) => {
+  let s = ''; const n = Math.min(u8.length, max);
+  for (let k = 0; k < n; k++) s += (k ? ' ' : '') + u8[k].toString(16).padStart(2, '0').toUpperCase();
+  return u8.length > max ? s + ` …(+${u8.length - max} B)` : s;
+};
+
+/* ───────────── 디버그 로그 ───────────── */
+// 페이지를 열 때마다 자동 저장 폴더에 fnb58_debug_날짜_시각.log를 하나 만들고 1초마다 이어 쓴다.
+// 폴더 권한이 아직 없으면 메모리에 모아 두었다가, 권한이 생기면 처음부터 쓴다.
+const Dbg = {
+  t0: now(), name: '', all: [], pend: [], fh: null, fhDir: null, bytes: 0, busy: false, wErr: null, lastTick: 0,
+  log(tag, msg) {
+    const d = new Date(), p = (x, n = 2) => String(x).padStart(n, '0');
+    const line = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${p(d.getMilliseconds(), 3)} +${(now() - this.t0).toFixed(3).padStart(10)} [${tag}] ${msg}`;
+    this.pend.push(line); this.all.push(line);
+    if (this.all.length > 30000) this.all.splice(0, 10000);
+    if (this.pend.length > 30000) this.pend.splice(0, 10000);
+  },
+  fail(tag, what, e) { this.log(tag, `${what} 실패: ${e && e.name ? e.name + ': ' : ''}${e && e.message !== undefined ? e.message : e}`); },
+  init() {
+    this.name = 'fnb58_debug_' + stamp(new Date()) + '.log';
+    const n = navigator;
+    this.log('PAGE', `열림 · ${location.protocol}//${location.host}/…/${location.pathname.split('/').pop()}`);
+    this.log('PAGE', 'UA: ' + n.userAgent);
+    this.log('PAGE', `지원: WebHID=${'hid' in n} WebBluetooth=${!!n.bluetooth} 폴더저장=${'showDirectoryPicker' in window} secure=${window.isSecureContext}`);
+    this.log('PAGE', 'CFG ' + JSON.stringify(CFG));
+    if (n.bluetooth && n.bluetooth.getAvailability) n.bluetooth.getAvailability().then((a) => this.log('BLE', '블루투스 어댑터 사용 가능: ' + a)).catch(() => {});
+    if (n.bluetooth && n.bluetooth.addEventListener) n.bluetooth.addEventListener('availabilitychanged', (e) => this.log('BLE', '블루투스 어댑터 상태 변경: ' + e.value));
+    addEventListener('error', (e) => this.log('ERR', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
+    addEventListener('unhandledrejection', (e) => { const r = e.reason; this.log('ERR', 'unhandledrejection: ' + (r && (r.stack || r.message) || r)); });
+    document.addEventListener('visibilitychange', () => this.log('PAGE', document.hidden ? '탭 숨김' : '탭 보임'));
+    document.addEventListener('freeze', () => this.log('PAGE', '페이지 정지 (freeze)'));
+    document.addEventListener('resume', () => this.log('PAGE', '페이지 재개 (resume)'));
+    addEventListener('pagehide', () => { this.log('PAGE', '페이지 닫힘'); this.flush(); });
+    this.lastTick = now();
+    setInterval(() => {
+      // 1초 타이머가 크게 밀렸으면 PC 절전이나 탭 정지가 있었다는 뜻 (숨긴 탭은 1분 단위 제한이 정상이라 크게 밀릴 때만)
+      const t = now(), gap = t - this.lastTick; this.lastTick = t;
+      if (gap > (document.hidden ? 90 : 5)) this.log('PAGE', `타이머 공백 ${gap.toFixed(1)}초 · 탭 ${document.hidden ? '숨김' : '보임'} (PC 절전이나 탭 정지 가능성)`);
+      this.flush();
+    }, 1000);
+  },
+  async flush() {
+    if (this.busy || !this.name || !this.pend.length) return;
+    if (Save.mode !== 'fs' || !Save.dir || Save.perm !== 'granted') return;
+    this.busy = true;
+    try {
+      if (this.fhDir !== Save.dir) { // 첫 기록이거나 저장 폴더가 바뀜: 지금까지의 로그를 새 파일에 모두 쓴다
+        this.fh = await Save.dir.getFileHandle(this.name, { create: true });
+        if (this.fhDir) this.pend = this.all.slice();
+        this.fhDir = Save.dir; this.bytes = 0;
+      }
+      const n = this.pend.length;
+      const u8 = new TextEncoder().encode(this.pend.slice(0, n).join('\n') + '\n');
+      const w = await this.fh.createWritable({ keepExistingData: true });
+      await w.seek(this.bytes); await w.write(u8); await w.close();
+      this.bytes += u8.length; this.pend.splice(0, n); this.wErr = null;
+    } catch (e) { this.wErr = e.message || String(e); }
+    this.busy = false;
+  },
+  download() { download(this.name || 'fnb58_debug.log', this.all.join('\n') + '\n'); },
+};
+
+/* ───────────── 데이터 저장소 ───────────── */
+class Store {
+  constructor() { this.clear(); }
+  clear() {
+    this.cap = 1 << 16; this.n = 0;
+    this.t = new Float64Array(this.cap);
+    for (const k of ['v', 'i', 'dp', 'dn', 'tc']) this[k] = new Float32Array(this.cap);
+  }
+  grow() {
+    const c = this.cap * 2;
+    for (const k of ['t', 'v', 'i', 'dp', 'dn', 'tc']) { const a = new this[k].constructor(c); a.set(this[k]); this[k] = a; }
+    this.cap = c;
+  }
+  push(t, v, i, dp, dn, tc) {
+    if (this.n >= this.cap) this.grow();
+    const n = this.n;
+    this.t[n] = t; this.v[n] = v; this.i[n] = i; this.dp[n] = dp; this.dn[n] = dn; this.tc[n] = tc;
+    this.n = n + 1;
+  }
+  lower(x) { let lo = 0, hi = this.n; while (lo < hi) { const m = (lo + hi) >> 1; if (this.t[m] < x) lo = m + 1; else hi = m; } return lo; }
+}
+
+const S = {
+  store: new Store(), source: null, recording: true, base: now(), startDate: new Date(),
+  acc: { wh: 0, mah: 0, dur: 0, lastT: null, since: 0 },
+  latest: { v: NaN, i: NaN, dp: NaN, dn: NaN, tc: NaN },
+  events: [], rate: 0, rateCount: 0,
+};
+const sessionNow = () => now() - S.base;
+
+/* ───────────── 충전 방식 추정 ───────────── */
+function infer(dp, dn, v) {
+  if (!Number.isFinite(dp) || !Number.isFinite(dn)) return '—';
+  const near = (x, y, tol = 0.28) => Math.abs(x - y) < tol;
+  if (dp < 0.35 && dn < 0.35) return v > 5.6 ? '고전압 · PD/PPS 추정 (CC 통신)' : '표준 USB (D+/D− 신호 없음)';
+  if (near(dp, 0.6) && dn > 2.6) return 'QC3.0 연속 모드';
+  if (near(dp, 3.3) && near(dn, 0.6)) return 'QC2.0 9V';
+  if (dp > 2.9 && dn > 2.9) return 'QC2.0 20V';
+  if (near(dp, 0.6) && near(dn, 0.6)) return v > 10.5 ? 'QC2.0 12V' : 'BC1.2 DCP (D+/D− 단락)';
+  if (near(dp, 0.6) && dn < 0.35) return 'QC 핸드셰이크 · 5V';
+  if (near(dp, 2.7, 0.2) && near(dn, 2.0, 0.2)) return 'Apple 2.1A';
+  if (near(dp, 2.0, 0.2) && near(dn, 2.7, 0.2)) return 'Apple 2.4A';
+  if (near(dp, 2.0, 0.2) && near(dn, 2.0, 0.2)) return 'Apple 1A';
+  if (near(dp, 1.2, 0.25) && near(dn, 1.2, 0.25)) return 'Samsung 2A (1.2V)';
+  if (near(dp, dn, 0.15) && dp > 0.4 && dp < 2.5) return 'DCP (D+/D− 단락)';
+  return 'D+/D− 비표준 조합';
+}
+
+/* ───────────── 이벤트 감지 ───────────── */
+function addEvent(t, kind, text, detail) {
+  const ev = S.events;
+  let k = ev.length;
+  while (k > 0 && ev[k - 1].t > t) k--;
+  ev.splice(k, 0, { t, kind, text, detail });
+  if ((kind === 'info' || kind === 'alarm') && !S.importing) Dbg.log('EVT', text + (detail ? ' · ' + detail : ''));
+  evDirty = true; dirty = true;
+}
+const Det = {
+  reset() {
+    this.dpHi = false; this.dpHiT = 0; this.dnLo = false; this.dnLoT = 0; this.dnWasHi = false;
+    this.burst = null; this.wt = []; this.wv = []; this.level = null; this.k = 0;
+    this.load = null; this.loadCand = null; this.loadCandT = 0;
+    this.proto = null; this.protoCand = null; this.protoCandT = 0;
+  },
+  pulse(t, dir, v) {
+    if (this.burst && this.burst.dir !== dir) this.closeBurst(v);
+    if (!this.burst) this.burst = { dir, n: 0, t0: t, v0: this.level ?? v, last: t, ext: v };
+    this.burst.n++; this.burst.last = t;
+  },
+  closeBurst() {
+    const b = this.burst; this.burst = null;
+    const word = b.dir === 'up' ? '증가' : '감소';
+    const sign = b.dir === 'up' ? '+' : '−';
+    addEvent(b.t0, 'qc', `QC3.0 전압 ${word} 요청 ${b.n}회 (${sign}${(b.n * 0.2).toFixed(1)} V)`, `측정 VBUS ${b.v0.toFixed(2)} → ${b.ext.toFixed(2)} V`);
+  },
+  feed(t, v, i, dp, dn) {
+    // D+ 짧은 상승 펄스 = QC3.0 +200mV 요청
+    if (!this.dpHi && dp > 1.3) { this.dpHi = true; this.dpHiT = t; }
+    else if (this.dpHi && dp < 1.0) { this.dpHi = false; if (t - this.dpHiT < 0.35) this.pulse(t, 'up', v); }
+    // D− 짧은 하강 펄스 = QC3.0 −200mV 요청
+    if (dn > 2.5) {
+      if (this.dnLo) { this.dnLo = false; if (t - this.dnLoT < 0.35) this.pulse(t, 'down', v); }
+      this.dnWasHi = true;
+    } else if (dn < 1.5 && this.dnWasHi && !this.dnLo && dp < 1.2) { this.dnLo = true; this.dnLoT = t; }
+    if (this.dnLo && t - this.dnLoT > 0.35) { this.dnLo = false; this.dnWasHi = false; }
+    // 요청 묶음 동안 도달한 최고(증가) 또는 최저(감소) 전압을 기록
+    if (this.burst && Number.isFinite(v) && t - this.burst.last < 0.6) this.burst.ext = this.burst.dir === 'up' ? Math.max(this.burst.ext, v) : Math.min(this.burst.ext, v);
+    if (this.burst && t - this.burst.last > 1.2) this.closeBurst();
+
+    // VBUS 레벨 변화 (0.6초 동안 안정된 값 기준)
+    if (Number.isFinite(v)) {
+      this.wt.push(t); this.wv.push(v);
+      while (this.wt.length && this.wt[0] < t - 0.6) { this.wt.shift(); this.wv.shift(); }
+      if (++this.k % 4 === 0 && this.wt.length > 2 && t - this.wt[0] > 0.4) {
+        let lo = Infinity, hi = -Infinity, s = 0;
+        for (const x of this.wv) { if (x < lo) lo = x; if (x > hi) hi = x; s += x; }
+        if (hi - lo < 0.08) {
+          const m = s / this.wv.length;
+          if (this.level === null) this.level = m;
+          else if (Math.abs(m - this.level) > 0.35) {
+            addEvent(t, 'vbus', `VBUS ${this.level.toFixed(2)} → ${m.toFixed(2)} V`, m < this.level ? '전압 하강' : '전압 상승');
+            this.level = m;
+          }
+        }
+      }
+    }
+
+    // 전류 흐름 시작/중지
+    if (Number.isFinite(i)) {
+      const cand = i > 0.05 ? 'on' : (i < 0.02 ? 'off' : null);
+      if (cand && cand !== this.load) {
+        if (cand !== this.loadCand) { this.loadCand = cand; this.loadCandT = t; }
+        else if (t - this.loadCandT >= (cand === 'on' ? 0.5 : 1.5)) {
+          if (this.load !== null) {
+            if (cand === 'on') addEvent(this.loadCandT, 'load', '충전 전류 시작', `${i.toFixed(3)} A`);
+            else addEvent(this.loadCandT, 'load', '전류 0', '기기 분리 또는 충전 중지');
+          }
+          this.load = cand; this.loadCand = null;
+        }
+      } else this.loadCand = null;
+    }
+
+    // 충전 방식 추정 변화 (0.8초 유지 시)
+    const p = infer(dp, dn, v);
+    if (p !== '—' && p !== this.proto) {
+      if (p !== this.protoCand) { this.protoCand = p; this.protoCandT = t; }
+      else if (t - this.protoCandT >= 0.8) { addEvent(this.protoCandT, 'proto', p, `D+ ${dp.toFixed(2)} V · D− ${dn.toFixed(2)} V`); this.proto = p; this.protoCand = null; }
+    } else if (p === this.proto) this.protoCand = null;
+  },
+};
+Det.reset();
+
+/* ───────────── 설정 ───────────── */
+const CFG_DEF = { saveMode: 'auto', sps: 100, autoRec: false, startMa: 50, stopMa: 0, stopSec: 5, alarm: false, vMax: 24, iMax: 7, pMax: 168 };
+const CFG = Object.assign({}, CFG_DEF, (() => { try { return JSON.parse(localStorage.getItem('fnb58-cfg') || '{}'); } catch (e) { return {}; } })());
+function saveCfg() { try { localStorage.setItem('fnb58-cfg', JSON.stringify(CFG)); } catch (e) { /* 저장 불가 환경 */ } }
+
+// 저장 속도 낮추기: 1/sps 간격마다 평균값 하나를 저장
+const Dec = {
+  b: null, n: 0,
+  reset() { this.b = null; this.n = 0; },
+  push(t, v, i, dp, dn, tc) {
+    if (CFG.sps >= 100 || S.importing) { S.store.push(t, v, i, dp, dn, tc); return; }
+    const b = Math.floor(t * CFG.sps);
+    if (this.b !== null && b !== this.b) this.flush();
+    if (this.b !== b || this.n === 0) {
+      this.b = b; this.n = 0; this.st = 0; this.sv = 0; this.si = 0; this.sdp = 0; this.sdn = 0; this.ndp = 0; this.stc = 0; this.ntc = 0;
+    }
+    this.n++; this.st += t; this.sv += v; this.si += i;
+    if (dp === dp && dn === dn) { this.sdp += dp; this.sdn += dn; this.ndp++; }
+    if (tc === tc) { this.stc += tc; this.ntc++; }
+  },
+  flush() {
+    if (!this.n) return;
+    const n = this.n;
+    S.store.push(this.st / n, this.sv / n, this.si / n, this.ndp ? this.sdp / this.ndp : NaN, this.ndp ? this.sdn / this.ndp : NaN, this.ntc ? this.stc / this.ntc : NaN);
+    this.n = 0;
+  },
+};
+
+function setRecording(on) {
+  if (S.recording === on) return;
+  if (!on) Dec.flush();
+  Dec.reset();
+  S.recording = on; S.acc.lastT = null;
+  const b = $('#btnRec');
+  b.textContent = on ? '기록 일시정지' : '기록 재개';
+  b.classList.toggle('primary', !on);
+  setPill(); dirty = true;
+}
+
+// 자동 기록: 전류 기준으로 시작/정지
+const Auto = {
+  low: null,
+  step(t, i) {
+    if (!CFG.autoRec || S.importing || !Number.isFinite(i)) return;
+    const ma = i * 1000;
+    if (!S.recording) {
+      this.low = null;
+      if (ma >= CFG.startMa) { setRecording(true); addEvent(t, 'info', '자동 기록 시작', `${ma.toFixed(0)} mA ≥ ${CFG.startMa} mA`); }
+      return;
+    }
+    if (CFG.stopMa > 0 && ma < CFG.stopMa) {
+      if (this.low === null) this.low = t;
+      else if (t - this.low >= CFG.stopSec) {
+        addEvent(t, 'info', '자동 기록 정지', `${CFG.stopSec}초 동안 ${CFG.stopMa} mA 미만`);
+        this.low = null; setRecording(false);
+      }
+    } else this.low = null;
+  },
+};
+
+// 알람: 한계를 넘는 순간 한 번 알리고, 2% 아래로 내려오면 해제
+const Alarm = {
+  on: { v: false, i: false, p: false }, ac: null,
+  reset() { this.on = { v: false, i: false, p: false }; },
+  step(t, v, i) {
+    if (!CFG.alarm || S.importing) { if (this.on.v || this.on.i || this.on.p) this.reset(); return; }
+    this.check(t, 'v', v, CFG.vMax, 'VBUS', 'V', 3);
+    this.check(t, 'i', i, CFG.iMax, 'IBUS', 'A', 3);
+    this.check(t, 'p', v * i, CFG.pMax, '전력', 'W', 2);
+  },
+  check(t, key, val, lim, label, unit, d) {
+    if (!Number.isFinite(val) || !(lim > 0)) return;
+    if (!this.on[key] && val > lim) {
+      this.on[key] = true;
+      addEvent(t, 'alarm', `${label} 알람`, `${val.toFixed(d)} ${unit} > ${lim} ${unit}`);
+      notice(`${label} ${val.toFixed(d)} ${unit}: 설정한 한계 ${lim} ${unit}를 넘었습니다.`, 'bad');
+      this.beep();
+    } else if (this.on[key] && val < lim * 0.98) this.on[key] = false;
+  },
+  beep() {
+    try {
+      this.ac = this.ac || new (window.AudioContext || window.webkitAudioContext)();
+      const o = this.ac.createOscillator(), g = this.ac.createGain(), t0 = this.ac.currentTime;
+      o.frequency.value = 1760; g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.25, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.45);
+      o.connect(g).connect(this.ac.destination); o.start(t0); o.stop(t0 + 0.5);
+    } catch (e) { /* 소리 재생 불가 */ }
+  },
+};
+
+/* ───────────── 샘플 입력 ───────────── */
+function ingest(t, v, i, dp, dn, tc) {
+  const L = S.latest; L.v = v; L.i = i; L.dp = dp; L.dn = dn; if (Number.isFinite(tc)) L.tc = tc;
+  S.rateCount++;
+  Alarm.step(t, v, i);
+  Auto.step(t, i);
+  if (!S.recording) return;
+  Det.feed(t, v, i, dp, dn);
+  const a = S.acc;
+  if (a.lastT !== null) {
+    const dt = t - a.lastT;
+    if (dt > 0 && dt < 1.0 && Number.isFinite(v) && Number.isFinite(i)) {
+      a.wh += v * i * dt / 3600; a.mah += i * dt / 3.6; a.dur += dt;
+    }
+  }
+  a.lastT = t;
+  Dec.push(t, v, i, dp, dn, Number.isFinite(tc) ? tc : NaN);
+  dirty = true;
+}
+
+function beginSession(src, label) {
+  Save.finish(); // 이전 연결의 파일을 마저 쓰고 닫음
+  S.store.clear(); S.events = []; Det.reset(); Dec.reset(); Auto.low = null; Alarm.reset();
+  S.acc = { wh: 0, mah: 0, dur: 0, lastT: null, since: 0 };
+  S.base = now(); S.startDate = new Date();
+  view.follow = true; sel = null; showSel(); evDirty = true;
+  $('#accSince').textContent = '기록 시작 후';
+  S.source = src;
+  if (label) addEvent(sessionNow(), 'info', label, '');
+  if (src === 'usb' || src === 'ble') Save.start(S.startDate); // 연결마다 새 파일
+  dirty = true;
+}
+
+/* ───────────── USB (WebHID) ───────────── */
+function crc8(bytes) { // poly 0x39, init 0x42
+  let c = 0x42;
+  for (const b of bytes) { c ^= b; for (let k = 0; k < 8; k++) c = (c & 0x80) ? ((c << 1) ^ 0x39) & 0xFF : (c << 1) & 0xFF; }
+  return c;
+}
+function hidCmd(code) { const b = new Uint8Array(64); b[0] = 0xAA; b[1] = code; b[63] = crc8(b.subarray(1, 63)); return b; }
+
+const USB = {
+  dev: null, timer: null, tDev: null, lastRx: 0, nRep: 0, nBad: 0, nLog: 0, stT: 0, stalled: false,
+  async connect() {
+    if (!('hid' in navigator)) return notice('이 브라우저는 USB(WebHID)를 지원하지 않습니다. PC용 크롬이나 엣지를 사용하세요.', 'warn');
+    let devs;
+    try { devs = await navigator.hid.requestDevice({ filters: [{ vendorId: 0x2E3C, productId: 0x5558 }] }); }
+    catch (e) { Dbg.fail('USB', '장치 선택', e); return notice('USB 장치 선택 창을 열 수 없습니다. 이 페이지를 파일로 열었는지, 또는 https 주소인지 확인하세요. (' + e.message + ')', 'bad'); }
+    if (!devs || !devs.length) return Dbg.log('USB', '장치 선택 취소');
+    Dbg.log('USB', `장치 ${devs.length}개: ` + devs.map((d) => `${d.productName} (컬렉션 ${d.collections.length}, 출력 리포트 ${d.collections.some((c) => c.outputReports && c.outputReports.length) ? '있음' : '없음'})`).join(' / '));
+    const dev = devs.find((d) => d.collections.some((c) => c.outputReports && c.outputReports.length)) || devs[0];
+    setPill('busy', 'USB 연결 중…');
+    try { if (!dev.opened) await dev.open(); }
+    catch (e) { Dbg.fail('USB', '장치 열기', e); setPill(); return notice('테스터를 열 수 없습니다. 제조사 USB Tester 앱이 켜져 있으면 닫고 다시 시도하세요. (' + e.message + ')', 'bad'); }
+    Dbg.log('USB', '장치 열림: ' + dev.productName);
+    await stopSources();
+    beginSession('usb', '장치 연결: USB');
+    this.dev = dev; this.tDev = null; this.nRep = 0; this.nBad = 0; this.nLog = 0; this.stT = now(); this.stalled = false;
+    dev.addEventListener('inputreport', this.onReport);
+    await this.send(0x81); await sleep(60); await this.send(0x82); await sleep(60); await this.send(0x82);
+    Dbg.log('USB', '초기화 명령 보냄: AA 81, AA 82 ×2');
+    this.lastRx = now();
+    this.timer = setInterval(() => this.keepalive(), 1000);
+    setPill();
+  },
+  async send(code) { if (!this.dev) return; try { await this.dev.sendReport(0, hidCmd(code)); } catch (e) { Dbg.fail('USB', 'AA ' + code.toString(16).toUpperCase() + ' 전송', e); } },
+  keepalive() {
+    if (!this.dev) return;
+    this.send(0x83);
+    const idle = now() - this.lastRx;
+    if (idle > 3) { if (!this.stalled) Dbg.log('USB', `${idle.toFixed(1)}초 수신 없음 → AA 82 재전송 (수신될 때까지 매초)`); this.stalled = true; this.send(0x82); }
+    else if (this.stalled) { this.stalled = false; Dbg.log('USB', '수신 재개'); }
+    if (now() - this.stT >= 10) {
+      const dt = now() - this.stT;
+      Dbg.log('USB', `수신 ${dt.toFixed(0)}초: 리포트 ${this.nRep} (${(this.nRep * 4 / dt).toFixed(0)} sps) · 형식 다름 ${this.nBad}`);
+      this.nRep = 0; this.nBad = 0; this.stT = now();
+    }
+  },
+  onReport: (e) => {
+    const d = e.data;
+    if (USB.nLog < 3) { USB.nLog++; Dbg.log('RX', 'USB ' + hex(new Uint8Array(d.buffer, d.byteOffset, d.byteLength))); }
+    if (d.byteLength < 62 || d.getUint8(0) !== 0xAA || d.getUint8(1) !== 0x04) { USB.nBad++; return; }
+    USB.nRep++;
+    USB.lastRx = now();
+    const w = sessionNow();
+    if (USB.tDev === null || Math.abs(USB.tDev - w) > 0.5) USB.tDev = w - 0.04;
+    for (let k = 0; k < 4; k++) {
+      const o = 2 + 15 * k;
+      USB.tDev += 0.01;
+      ingest(USB.tDev,
+        d.getUint32(o, true) / 1e5, d.getUint32(o + 4, true) / 1e5,
+        d.getUint16(o + 8, true) / 1000, d.getUint16(o + 10, true) / 1000,
+        d.getUint16(o + 13, true) / 10);
+    }
+  },
+  async disconnect() {
+    clearInterval(this.timer); this.timer = null;
+    if (this.dev) {
+      const d = this.dev; this.dev = null;
+      d.removeEventListener('inputreport', this.onReport);
+      try { await d.close(); } catch (e) { /* 이미 분리됨 */ }
+    }
+  },
+};
+if ('hid' in navigator) navigator.hid.addEventListener('disconnect', (e) => {
+  if (USB.dev && e.device === USB.dev) { Dbg.log('USB', '장치 분리됨 (navigator.hid disconnect)'); USB.disconnect(); addEvent(sessionNow(), 'info', 'USB 연결 끊김', ''); Save.finish(); setPill(); }
+});
+
+/* ───────────── 블루투스 (Web Bluetooth) ───────────── */
+// 통신 형식은 공개된 구현(OpenFNB58, fnirsi-fnb58-web-monitor, parkerlreed)과 같다.
+//  - 알림 ffe4(서비스 ffe0), 쓰기 ffe9(서비스 ffe5)
+//  - 프레임: AA [type] [len] [data…] [chk], chk = CRC16-XMODEM(AA부터 data까지)의 하위 바이트
+// 명령은 GATT 연결마다 알려진 순서(알림 구독 → AA 81 → 2초 → AA 82)대로 한 번만 보낸다.
+// 연결 중에는 명령을 다시 보내지 않는다. 명령을 반복해서 보내면 테스터가 멈출 수 있다.
+// 연결·명령은 됐는데 데이터가 안 오면 재시도하지 않고 멈춘다 (재시도하면 명령만 더 쌓인다).
+const BLE_LEN = { 0x03: 14, 0x04: 12, 0x05: 7, 0x06: 6, 0x07: 4, 0x08: 17 };
+const BLE_CMD = { wake: [0xAA, 0x81, 0x00, 0xF4], start: [0xAA, 0x82, 0x00, 0xA7] };
+const BLE_AUTO_MAX = 3, BLE_AUTO_WINDOW = 600; // 10분 동안 자동 재연결 최대 3번
+const BLE_FIRST_WAIT = 8;  // AA 82를 보낸 뒤 첫 데이터를 기다리는 시간 (초)
+const BLE_STALL = 15;      // 수신 중이던 데이터가 이만큼 끊기면 연결을 새로 맺는다 (초)
+// 윈도우 크롬은 connect()를 바로 끝내고 실제 연결은 서비스 찾기 때 하는데, 기기가 응답하지 않으면
+// 그 단계가 끝나지 않고 멈춘다. 그래서 GATT 단계마다 제한 시간을 둔다 (초).
+const BLE_T = { connect: 20, discover: 15, notify: 8, write: 5, stop: 3 };
+const BLE_RETRY_WAIT = [3, 6]; // 재시도 전 대기 (초): 윈도우가 이전 연결을 정리할 시간
+function withTimeout(p, sec, what) {
+  let t;
+  const to = new Promise((_, rej) => { t = setTimeout(() => rej(Object.assign(new Error(`${what}: ${sec}초 동안 응답 없음`), { timeout: true })), sec * 1000); });
+  return Promise.race([p, to]).finally(() => clearTimeout(t));
+}
+function crc16x(b, from, to) { // CRC16-XMODEM: poly 0x1021, init 0
+  let c = 0;
+  for (let k = from; k < to; k++) { c ^= b[k] << 8; for (let j = 0; j < 8; j++) c = (c & 0x8000) ? ((c << 1) ^ 0x1021) & 0xFFFF : (c << 1) & 0xFFFF; }
+  return c;
+}
+const bleCounters = () => ({ notif: 0, bytes: 0, junk: 0, crcBad: 0, drop: 0, fr: {} });
+const bleProps = (ch) => Object.entries({ read: 'R', write: 'W', writeWithoutResponse: 'w', notify: 'N', indicate: 'I' }).filter(([k]) => ch.properties[k]).map(([, v]) => v).join('') || '-';
+
+const BLE = {
+  dev: null, chN: null, chW: null, buf: new Uint8Array(0), dp: NaN, dn: NaN, tc: NaN,
+  lastRx: 0, timer: null, want: false, gen: 0, opening: 0, autoTimes: [],
+  streaming: false, connAt: 0, st: null, w: null, stT: 0, noCrc: false, usbPresent: null,
+  async connect(all) {
+    if (!navigator.bluetooth) return notice('이 브라우저는 블루투스(Web Bluetooth)를 지원하지 않습니다. 크롬이나 엣지를 사용하세요.', 'warn');
+    let dev;
+    const opt = all ? { acceptAllDevices: true, optionalServices: [0xffe0, 0xffe5] }
+                    : { filters: [{ namePrefix: 'FNB' }], optionalServices: [0xffe0, 0xffe5] };
+    Dbg.log('BLE', `기기 선택 창 (${all ? '모든 기기' : '이름 FNB*'})`);
+    try { dev = await navigator.bluetooth.requestDevice(opt); }
+    catch (e) { Dbg.fail('BLE', '기기 선택', e); if (e.name !== 'NotFoundError') notice('블루투스 기기 선택 창을 열 수 없습니다. (' + e.message + ')', 'bad'); return; }
+    Dbg.log('BLE', `기기 선택됨: name=${dev.name || '(없음)'} id=${dev.id} gatt.connected=${dev.gatt.connected}`);
+    Demo.stop(); await USB.disconnect();
+    await this.disconnect();              // 이전 연결 정리 (세대 번호도 올라감)
+    const gen = ++this.gen;
+    beginSession('ble', '장치 연결: 블루투스 · ' + (dev.name || '이름 없음'));
+    this.dev = dev; this.want = true; this.autoTimes = []; this.noCrc = false;
+    dev.removeEventListener('gattserverdisconnected', this.onDisc);
+    dev.addEventListener('gattserverdisconnected', this.onDisc);
+    this.usbCheck();
+    this.open(gen, true);
+  },
+  // 진단용: 테스터가 이 PC에 USB로도 꽂혀 있는지 (USB 연결을 허용한 적이 있는 경우에만 알 수 있음)
+  async usbCheck() {
+    if (!('hid' in navigator)) return;
+    try {
+      const d = await navigator.hid.getDevices();
+      this.usbPresent = d.some((x) => x.vendorId === 0x2E3C && x.productId === 0x5558);
+      Dbg.log('BLE', '테스터가 PC USB에도 연결됨: ' + (this.usbPresent ? '예' : '아니요 (또는 USB 허용 기록 없음)'));
+    } catch (e) { Dbg.fail('BLE', 'USB 연결 확인', e); }
+  },
+  // GATT 연결 시도: 최대 3회. 연결은 됐는데 데이터가 없는 경우는 재시도하지 않는다.
+  async open(gen, first) {
+    if (this.opening === gen) return;
+    this.opening = gen;
+    clearInterval(this.timer); this.timer = null;
+    let lastErr = null;
+    for (let attempt = 1; attempt <= 3 && this.want && gen === this.gen; attempt++) {
+      setPill('busy', attempt === 1 ? (first ? '블루투스 연결 중…' : '블루투스 재연결 중…') : `블루투스 재시도 ${attempt}/3…`);
+      Dbg.log('BLE', `GATT 연결 시도 ${attempt}/3 (${first ? '처음' : '재연결'})`);
+      try {
+        await this.setup(gen, first);
+        if (gen !== this.gen) return;
+        this.opening = 0;
+        setPill();
+        return;
+      } catch (e) {
+        lastErr = e; Dbg.fail('BLE', `연결 시도 ${attempt}`, e);
+        if (gen !== this.gen) return;
+        // 연결 여부와 상관없이 끊어서, 멈춘 서비스 찾기나 대기 중인 연결도 정리한다
+        try { if (this.dev) this.dev.gatt.disconnect(); } catch (_) {}
+        if (e.noStream) break;
+        if (attempt < 3) {
+          const wait = BLE_RETRY_WAIT[attempt - 1];
+          Dbg.log('BLE', `${wait}초 기다린 뒤 다시 시도`);
+          setPill('busy', `블루투스 재시도 대기 (${wait}초)…`);
+          await sleep(wait * 1000);
+        }
+      }
+    }
+    if (this.opening === gen) this.opening = 0;
+    if (gen !== this.gen || !this.want) return;
+    if (lastErr && lastErr.noStream) this.noStream();
+    else this.giveUp(lastErr ? `연결하지 못했습니다 (${lastErr.message})` : '연결하지 못했습니다');
+  },
+  async setup(gen, first) {
+    const dev = this.dev, T = now(), ms = () => Math.round((now() - T) * 1000) + 'ms';
+    // 단계마다 제한 시간을 두고, 끝나면 걸린 시간을 기록한다
+    const step = async (what, p, sec) => {
+      const t = now(); Dbg.log('BLE', what + ' …');
+      const r = await withTimeout(p, sec, what);
+      Dbg.log('BLE', `${what} 완료 (${Math.round((now() - t) * 1000)}ms)`);
+      if (gen !== this.gen) throw new Error('취소됨');
+      return r;
+    };
+    const srv = await step('GATT 연결', dev.gatt.connect(), BLE_T.connect);
+    await sleep(300); // 연결 직후 바로 서비스를 찾으면 실패하는 환경이 있어 잠깐 기다림
+    if (!srv.connected) throw new Error('연결 직후 끊김 (테스터나 윈도우 쪽에서 끊음)');
+    const sN = await step('서비스 ffe0 찾기', srv.getPrimaryService(0xffe0), BLE_T.discover);
+    const chN = await step('특성 ffe4 찾기', sN.getCharacteristic(0xffe4), BLE_T.discover);
+    const sW = await step('서비스 ffe5 찾기', srv.getPrimaryService(0xffe5), BLE_T.discover);
+    const chW = await step('특성 ffe9 찾기', sW.getCharacteristic(0xffe9), BLE_T.discover);
+    Dbg.log('BLE', `특성 속성 (${ms()}): ffe4=${bleProps(chN)} ffe9=${bleProps(chW)}`);
+    if (this.chN) this.chN.removeEventListener('characteristicvaluechanged', this.onNotify);
+    this.chN = chN; this.chW = chW;
+    chN.addEventListener('characteristicvaluechanged', this.onNotify);
+    this.buf = new Uint8Array(0); this.resetStats(); this.streaming = false; this.connAt = now(); this.lastRx = 0;
+    await step('알림 구독', chN.startNotifications(), BLE_T.notify);
+    const alive = () => { if (!srv.connected) throw new Error('초기화 중 끊김'); if (gen !== this.gen) throw new Error('취소됨'); };
+    // 재연결: 테스터가 아직 보내고 있을 수 있으니 명령 없이 먼저 기다려 본다
+    if (!first) {
+      if (await this.waitData(gen, 2.5)) return this.started(gen, first, '명령 없이 수신 재개');
+      alive();
+    }
+    await this.cmd(BLE_CMD.wake, '측정 모드 (AA 81)');
+    await sleep(2000); alive();
+    await this.cmd(BLE_CMD.start, '측정 시작 (AA 82)');
+    setPill('busy', '블루투스 데이터 기다리는 중…');
+    const half = BLE_FIRST_WAIT / 2;
+    if (await this.waitData(gen, half)) return this.started(gen, first);
+    alive();
+    // 알림 구독이 제대로 걸리지 않았을 수 있어, 테스터에 명령은 보내지 않고 구독만 다시 한다
+    Dbg.log('BLE', `AA 82 후 ${half}초 동안 알림 0건 → 알림 구독만 다시 (명령 없음)`);
+    try { await withTimeout(chN.stopNotifications(), BLE_T.stop, '알림 구독 해제'); } catch (e) { Dbg.fail('BLE', '알림 구독 해제', e); }
+    alive();
+    await step('알림 다시 구독', chN.startNotifications(), BLE_T.notify);
+    if (await this.waitData(gen, half)) return this.started(gen, first, '구독을 다시 한 뒤 수신');
+    alive();
+    throw Object.assign(new Error(`연결과 명령은 정상인데 ${BLE_FIRST_WAIT}초 동안 알림 0건`), { noStream: true });
+  },
+  async waitData(gen, sec) {
+    const end = now() + sec;
+    while (now() < end) {
+      if (this.st.notif > 0) return true;
+      if (gen !== this.gen) throw new Error('취소됨');
+      if (!this.dev || !this.dev.gatt.connected) return false; // 끊김은 호출한 쪽에서 처리
+      await sleep(100);
+    }
+    return this.st.notif > 0;
+  },
+  started(gen, first, why) {
+    const lat = now() - this.connAt;
+    this.streaming = true;
+    addEvent(sessionNow(), 'info', first ? '블루투스 데이터 수신 시작' : '블루투스 다시 연결됨', why || `구독 후 ${lat.toFixed(1)}초`);
+    clearInterval(this.timer);
+    this.timer = setInterval(() => this.watchdog(gen), 2000);
+  },
+  async cmd(bytes, label) {
+    Dbg.log('TX', `${hex(bytes)} · ${label}`);
+    addEvent(sessionNow(), 'info', '블루투스 명령: ' + label, '');
+    try { await withTimeout(this.write(bytes), BLE_T.write, label + ' 전송'); } catch (e) { Dbg.fail('TX', label, e); throw e; }
+  },
+  resetStats() { this.st = bleCounters(); this.st.logged = 0; this.st.badLogged = 0; this.st.seen = {}; this.w = bleCounters(); this.stT = now(); },
+  cnt(k, n = 1) {
+    if (k === 'fr') { this.st.fr[n] = (this.st.fr[n] || 0) + 1; this.w.fr[n] = (this.w.fr[n] || 0) + 1; }
+    else { this.st[k] += n; this.w[k] += n; }
+  },
+  statLine() {
+    if (!this.w) return;
+    const w = this.w, dt = Math.max(now() - this.stT, 0.001);
+    const fr = Object.keys(w.fr).map((k) => (+k).toString(16).padStart(2, '0') + ':' + w.fr[k]).join(' ') || '없음';
+    Dbg.log('BLE', `수신 ${dt.toFixed(0)}초: 알림 ${w.notif}건 (${(w.notif / dt).toFixed(1)}/s) · ${w.bytes} B · 프레임 ${fr} · CRC 오류 ${w.crcBad} · 버린 바이트 ${w.junk + w.drop}`);
+    this.w = bleCounters(); this.stT = now();
+  },
+  // 데이터가 끊기면 명령을 되풀이하지 않고, 연결을 한 번 새로 맺는다 (횟수 제한 있음)
+  watchdog(gen) {
+    if (gen !== this.gen || !this.chW) return;
+    if (now() - this.stT >= 10) this.statLine();
+    const st = this.st;
+    if (!this.noCrc && st.crcBad >= 20 && !Object.keys(st.fr).length) {
+      // 체크섬 형식이 다른 펌웨어일 수 있어, 길이만 보고 해석한다
+      this.noCrc = true;
+      Dbg.log('BLE', `CRC가 맞는 프레임이 하나도 없음 (오류 ${st.crcBad}건) → CRC 검사 끔`);
+    }
+    const idle = now() - this.lastRx;
+    if (idle > BLE_STALL) {
+      clearInterval(this.timer); this.timer = null;
+      this.statLine();
+      Dbg.log('BLE', `데이터 멈춤: ${idle.toFixed(1)}초 수신 없음 · gatt.connected=${!!(this.dev && this.dev.gatt.connected)} · 탭 ${document.hidden ? '숨김' : '보임'}`);
+      addEvent(sessionNow(), 'info', '블루투스 데이터 멈춤', `${Math.round(idle)}초 동안 수신 없음`);
+      try { this.dev.gatt.disconnect(); } catch (_) {}
+      this.autoReconnect(gen);
+    }
+  },
+  autoReconnect(gen) {
+    const t = now();
+    this.autoTimes = this.autoTimes.filter((x) => t - x < BLE_AUTO_WINDOW);
+    if (this.autoTimes.length >= BLE_AUTO_MAX) {
+      this.giveUp('10분 안에 연결이 여러 번 끊겨 자동 재연결을 멈췄습니다');
+      return;
+    }
+    this.autoTimes.push(t);
+    Dbg.log('BLE', `3초 뒤 자동 재연결 (10분 안에 ${this.autoTimes.length}/${BLE_AUTO_MAX}번째)`);
+    setPill('busy', '블루투스 재연결 대기…');
+    setTimeout(() => { if (this.want && gen === this.gen) this.open(gen, false); }, 3000);
+  },
+  stop() {
+    this.want = false; clearInterval(this.timer); this.timer = null;
+    try { if (this.dev) this.dev.gatt.disconnect(); } catch (_) {}
+  },
+  giveUp(why) {
+    this.stop();
+    Dbg.log('BLE', '중단: ' + why);
+    addEvent(sessionNow(), 'info', '블루투스 연결 중단', why);
+    Save.finish(); setPill();
+    notice(`블루투스: ${why}. 확인할 것: 제조사 폰 앱이나 폰 블루투스가 테스터에 연결돼 있지 않은지, 윈도우 블루투스 설정에 FNB58이 ‘페어링됨’으로 등록돼 있으면 제거했는지. 테스터 화면이 멈춰 있다면 전원을 껐다 켜세요.`, 'bad');
+  },
+  // 연결과 명령은 정상인데 테스터가 아무것도 보내지 않는 경우
+  noStream() {
+    this.stop();
+    Dbg.log('BLE', `중단: 테스터 무응답 (알림 0건) · PC USB에도 연결=${this.usbPresent}`);
+    addEvent(sessionNow(), 'info', '블루투스: 테스터가 데이터를 보내지 않음', `연결·명령은 정상, ${BLE_FIRST_WAIT}초 동안 수신 0건`);
+    Save.finish(); setPill();
+    notice('블루투스 연결과 명령 전송은 정상인데 테스터가 데이터를 보내지 않습니다. 테스터의 블루투스 쪽이 멈춘 상태일 가능성이 큽니다. 테스터 전원을 완전히 껐다 켠 뒤 다시 연결하세요.', 'bad');
+  },
+  write(bytes) {
+    const b = new Uint8Array(bytes), c = this.chW;
+    if (c.properties.writeWithoutResponse && c.writeValueWithoutResponse) return c.writeValueWithoutResponse(b);
+    return c.writeValueWithResponse ? c.writeValueWithResponse(b) : c.writeValue(b);
+  },
+  onNotify: (e) => {
+    const B = BLE;
+    if (e.target !== B.chN || !B.st) return; // 끊긴 연결에서 뒤늦게 온 알림
+    const dv = e.target.value, add = new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength);
+    B.lastRx = now(); B.cnt('notif'); B.cnt('bytes', add.length);
+    if (B.st.logged < 60) { B.st.logged++; Dbg.log('RX', hex(add)); } // 연결마다 처음 60건은 원본 그대로
+    const merged = new Uint8Array(B.buf.length + add.length); merged.set(B.buf); merged.set(add, B.buf.length);
+    B.buf = B.parse(merged);
+  },
+  parse(b) {
+    let i = 0;
+    const u16 = (o) => b[o] | (b[o + 1] << 8);
+    const u32 = (o) => (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0;
+    while (i < b.length) {
+      if (b[i] !== 0xAA) { i++; this.cnt('junk'); continue; }
+      if (i + 3 > b.length) break;
+      const type = b[i + 1], len = b[i + 2];
+      if (BLE_LEN[type] !== len) { i++; this.cnt('junk'); continue; }
+      if (i + len + 4 > b.length) break;
+      if (!this.noCrc && (crc16x(b, i, i + 3 + len) & 0xFF) !== b[i + 3 + len]) {
+        this.cnt('crcBad');
+        if (this.st.badLogged++ < 20) Dbg.log('BLE', 'CRC 오류 프레임: ' + hex(b.subarray(i, i + len + 4)));
+        i++; continue;
+      }
+      this.cnt('fr', type);
+      if (!this.st.seen[type]) { this.st.seen[type] = true; Dbg.log('BLE', `첫 ${type.toString(16).padStart(2, '0')} 프레임: ${hex(b.subarray(i, i + len + 4))}`); }
+      const d = i + 3;
+      if (type === 0x07) ingest(sessionNow(), u16(d) / 1000, u16(d + 2) / 1000, this.dp, this.dn, this.tc);
+      else if (type === 0x06) { this.dp = u16(d) / 1000; this.dn = u16(d + 2) / 1000; }
+      else if (type === 0x05) { this.tc = u16(d + 5) / 10; }
+      else if (type === 0x03) Dbg.log('BLE', `테스터 정보 (web-monitor 해석): 모델 ${u16(d)} · 펌웨어 ${(u16(d + 2) / 100).toFixed(2)} · S/N ${u32(d + 4)}`);
+      i += len + 4;
+    }
+    const rest = b.slice(i);
+    if (rest.length > 512) { this.cnt('drop', rest.length); return new Uint8Array(0); }
+    return rest;
+  },
+  onDisc: () => {
+    const B = BLE, gen = B.gen, t = now();
+    Dbg.log('BLE', `gattserverdisconnected · 연결 후 ${B.connAt ? (t - B.connAt).toFixed(1) + '초' : '?'} · 마지막 수신 ${B.lastRx ? (t - B.lastRx).toFixed(1) + '초 전' : '없음'} · want=${B.want} 연결시도중=${!!B.opening} 수신중=${B.streaming}`);
+    if (!B.want || B.opening === gen || !B.timer) return; // 연결 시도 중이거나 이미 처리 중이면 무시
+    clearInterval(B.timer); B.timer = null;
+    B.statLine();
+    addEvent(sessionNow(), 'info', '블루투스 연결 끊김', '');
+    B.autoReconnect(gen);
+  },
+  async disconnect() {
+    this.gen++; this.want = false; this.opening = 0; this.streaming = false;
+    clearInterval(this.timer); this.timer = null;
+    const dev = this.dev, chN = this.chN;
+    this.dev = null; this.chN = null; this.chW = null;
+    if (dev) { this.statLine(); Dbg.log('BLE', '연결 정리 (해제 또는 다른 연결로 전환)'); }
+    if (chN) { try { chN.removeEventListener('characteristicvaluechanged', this.onNotify); if (dev && dev.gatt.connected) await withTimeout(chN.stopNotifications(), BLE_T.stop, '알림 구독 해제'); } catch (_) {} }
+    // 연결 여부와 상관없이 끊어서, 멈춘 서비스 찾기나 대기 중인 연결도 정리한다
+    if (dev) { try { dev.gatt.disconnect(); } catch (_) {} }
+  },
+  get connected() { return !!(this.dev && this.dev.gatt && this.dev.gatt.connected && this.timer); },
+  get linking() { return this.want && !this.connected; },
+};
+
+/* ───────────── 데모 (폰 충전 → 분리 → 태블릿 QC3.0 협상을 흉내 낸 데이터) ───────────── */
+const Demo = {
+  timer: null, t: 0, vout: 5.0, i: 0, temp: 33.2,
+  rn() { return (Math.random() + Math.random() + Math.random() - 1.5) * 0.66; },
+  // QC3.0 협상: D+ 0.6V 인가 → D−와 단락(BC1.2) → 해제 → 연속 모드(D− 3.3V) → +200mV 펄스 n회
+  nego(q, n, base) {
+    let dp = 0.6, dn = 0.6, vset = base;
+    if (q >= 1.3 && q < 1.6) dn = 0.02;
+    else if (q >= 1.6) {
+      dn = 3.3;
+      const pc = q < 1.83 ? 0 : Math.min(n, Math.floor((q - 1.83) / 0.15) + 1);
+      vset = base + 0.2 * pc;
+      if (q >= 1.8 && (q - 1.8) / 0.15 < n && ((q - 1.8) % 0.15) < 0.03) dp = 3.3;
+    }
+    return { dp, dn, vset };
+  },
+  sample(t) {
+    const p = t % 303;
+    let vset, it = 0, dp, dn, off = 0.055;
+    if (p < 5) { const r = this.nego(p, 17, 5.06); vset = r.vset; dp = r.dp; dn = r.dn; }
+    else if (p < 45) { // 폰 · 슬립 상태 충전 on/off
+      vset = p < 22 ? 8.46 : 8.26;
+      const c = p % 1.8;
+      it = c > 1.45 ? 0.06 : 1.16 + 0.05 * Math.sin(p * 7.3);
+      dp = 0.655; dn = 3.04;
+      if (p >= 22 && p < 22.03) dn = 0.62; // QC3.0 −200mV 요청
+    } else if (p < 48 || p >= 300) { vset = 5.02; dp = 0.23; dn = 0.05; off = 0; }
+    else if (p < 53) { const r = this.nego(p - 48, 20, 5.05); vset = r.vset; dp = r.dp; dn = r.dn; }
+    else { vset = 9.05; it = p < 53.3 ? 0 : 2.394; dp = 0.60; dn = 3.01; off = 0.07; }
+    this.i += (it - this.i) * (it > this.i ? 0.06 : 0.5);
+    const i = Math.max(0, this.i + (this.i > 0.01 ? this.rn() * (it > 2 ? 0.003 : 0.012) : 0));
+    this.vout += (vset - this.vout) * 0.1;
+    const v = this.vout - 0.125 * i + this.rn() * 0.004;
+    this.temp += ((33 + 0.8 * i) - this.temp) * 0.0004;
+    const shift = off * i;
+    return [v, i, dp === 3.3 ? 3.3 : dp + shift + this.rn() * 0.006, dn + shift + this.rn() * 0.008, this.temp];
+  },
+  run(t1) { while (this.t < t1) { const s = this.sample(this.t); ingest(this.t, ...s); this.t = +(this.t + 0.01).toFixed(4); } },
+  start() {
+    beginSession('demo');
+    this.t = 0; this.vout = 5.0; this.i = 0; this.temp = 33.2;
+    S.base = now() - 64;
+    this.run(64);
+    this.timer = setInterval(() => this.run(sessionNow()), 50);
+    setPill();
+  },
+  stop() { clearInterval(this.timer); this.timer = null; },
+};
+
+async function stopSources() { Demo.stop(); await USB.disconnect(); await BLE.disconnect(); Save.finish(); }
+
+/* ───────────── 상태 표시 ───────────── */
+function setPill(state, text) {
+  const pill = $('#pill');
+  const live = (USB.dev && 'USB') || (BLE.connected && '블루투스') || null;
+  if (!state && BLE.linking) { state = 'busy'; text = '블루투스 재연결 중…'; }
+  if (!state) {
+    const waiting = CFG.autoRec ? '자동 기록 대기' : '기록 일시정지';
+    if (live) { state = S.recording ? 'live' : 'paused'; text = live + (S.recording ? ' 측정 중' : ' · ' + waiting); }
+    else if (Demo.timer) { state = S.recording ? 'demo' : 'paused'; text = S.recording ? '데모 데이터' : '데모 · ' + waiting; }
+    else if (S.source === 'file') { state = 'idle'; text = '파일 보기'; }
+    else { state = 'idle'; text = S.store.n ? '연결 끊김 · 기록 보존' : '연결 안 됨'; }
+  }
+  pill.dataset.state = state; $('#pillText').textContent = text;
+  $('#btnDisc').hidden = !(live || BLE.linking || Demo.timer);
+  $('#btnDisc').textContent = (live || BLE.linking) ? '연결 해제' : '데모 정지';
+}
+function notice(msg, kind = 'info', actions) {
+  Dbg.log('UI', `알림(${kind}): ${msg}`);
+  const box = document.createElement('div');
+  box.className = 'notice'; box.dataset.kind = kind;
+  const s = document.createElement('span'); s.textContent = msg;
+  box.append(s);
+  for (const [label, fn] of actions || []) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn small act'; b.textContent = label;
+    b.onclick = () => { box.remove(); fn(); };
+    box.append(b);
+  }
+  const x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.setAttribute('aria-label', '닫기'); x.textContent = '×';
+  x.onclick = () => box.remove();
+  box.append(x); $('#notices').append(box);
+  if (kind === 'info' && !actions) setTimeout(() => box.remove(), 8000);
+  return box;
+}
+
+const fmtNum = (x, d) => Number.isFinite(x) ? x.toFixed(d) : '—';
+function fmtDur(s) { s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, ss = s % 60; return `${h}:${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}`; }
+function setVal(id, num, unit) { $(id).innerHTML = num === '—' ? '—' : `${num}<small>${unit}</small>`; }
+
+function batFactor() {
+  const nom = parseFloat($('#inNom').value), eff = parseFloat($('#inEff').value);
+  if (!(nom > 0) || !(eff > 0)) return NaN;
+  return (eff / 100) / nom; // Wh → Ah(배터리 기준)
+}
+
+function updateReadouts() {
+  const L = S.latest;
+  setVal('#rV', fmtNum(L.v, S.source === 'ble' ? 3 : 4), 'V');
+  setVal('#rI', fmtNum(L.i, S.source === 'ble' ? 3 : 4), 'A');
+  setVal('#rP', fmtNum(L.v * L.i, 3), 'W');
+  setVal('#rDp', fmtNum(L.dp, 3), 'V');
+  setVal('#rDn', fmtNum(L.dn, 3), 'V');
+  setVal('#rT', fmtNum(L.tc, 1), '°C');
+  const r = L.i > 0.005 ? L.v / L.i : NaN;
+  setVal('#rR', Number.isFinite(r) ? (r >= 100 ? r.toFixed(0) : r.toFixed(2)) : '—', 'Ω');
+  $('#rProto').textContent = infer(L.dp, L.dn, L.v);
+  $('#rV').parentElement.classList.toggle('alarm', Alarm.on.v);
+  $('#rI').parentElement.classList.toggle('alarm', Alarm.on.i);
+  $('#rP').parentElement.classList.toggle('alarm', Alarm.on.p);
+  const a = S.acc;
+  $('#aWh').textContent = a.wh < 1 ? (a.wh * 1000).toFixed(1) + ' mWh' : a.wh.toFixed(3) + ' Wh';
+  $('#aMah').textContent = a.mah.toFixed(1) + ' mAh';
+  $('#aDur').textContent = fmtDur(a.dur);
+  $('#aN').textContent = S.store.n.toLocaleString('ko-KR');
+  const f = batFactor();
+  $('#aBat').textContent = Number.isFinite(f) ? Math.round(a.wh * f * 1000).toLocaleString('ko-KR') + ' mAh' : '—';
+  if (evDirty) renderEvents();
+}
+setInterval(updateReadouts, 120);
+setInterval(() => {
+  S.rate = S.rateCount; S.rateCount = 0;
+  $('#pillRate').textContent = (USB.dev || BLE.connected || Demo.timer) ? `${S.rate} sps` : '';
+}, 1000);
+
+/* ───────────── 이벤트 목록 ───────────── */
+let evDirty = true;
+const CHIP = { qc: 'QC', vbus: '전압', load: '전류', proto: '방식', info: '기록', alarm: '알람' };
+function renderEvents() {
+  evDirty = false;
+  const list = $('#evList'); list.textContent = '';
+  const ev = S.events;
+  $('#evCount').textContent = ev.length + '건';
+  $('#evEmpty').hidden = ev.length > 0;
+  const frag = document.createDocumentFragment();
+  for (let k = ev.length - 1; k >= Math.max(0, ev.length - 200); k--) {
+    const e = ev[k];
+    const li = document.createElement('li');
+    const b = document.createElement('button'); b.type = 'button';
+    b.innerHTML = `<span class="et">${fmtT(e.t, 0.1)}</span><span class="chip ${e.kind}">${CHIP[e.kind]}</span><span class="ed"></span>`;
+    const ed = b.querySelector('.ed'); ed.textContent = e.text;
+    if (e.detail) { const sm = document.createElement('small'); sm.textContent = e.detail; ed.append(sm); }
+    b.onclick = () => { const [t0, t1] = viewRange(); const span = Math.max(8, Math.min(t1 - t0, 60)); view.follow = false; view.t0 = e.t - span * 0.35; view.t1 = view.t0 + span; hoverT = e.t; syncToolbar(); dirty = true; };
+    li.append(b); frag.append(li);
+  }
+  list.append(frag);
+}
+
+/* ───────────── 그래프 ───────────── */
+const cv = $('#scope'), ctx = cv.getContext('2d');
+let dirty = true, hoverT = null, sel = null, mode = 'pan';
+const view = { follow: true, span: 60, t0: 0, t1: 60 };
+let C = {};
+function readColors() {
+  const cs = getComputedStyle(document.documentElement);
+  for (const k of ['ink', 'muted', 'line', 'grid', 'axis', 'surface', 'surface-2', 'c-v', 'c-i', 'c-dp', 'c-dn', 'sel', 'evt', 'cross']) C[k] = cs.getPropertyValue('--' + k).trim();
+  C.mono = cs.getPropertyValue('--font-mono').trim(); dirty = true;
+}
+readColors();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors);
+new MutationObserver(readColors).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+if (document.fonts) document.fonts.ready.then(() => { dirty = true; });
+
+const PANELS = [
+  { name: 'VBUS', unit: 'V', series: [['v', 'c-v', 'VBUS']], minSpan: 0.1, def: [4.8, 5.2] },
+  { name: 'IBUS', unit: 'A', series: [['i', 'c-i', 'IBUS']], minSpan: 0.05, def: [0, 1] },
+  { name: 'D+/D−', unit: 'V', series: [['dp', 'c-dp', 'D+'], ['dn', 'c-dn', 'D−']], minSpan: 0.2, def: [0, 3.3] },
+];
+const PAD = { l: 58, r: 12, t: 8, b: 26, g: 14 };
+
+function extent() { const st = S.store; return st.n ? [st.t[0], st.t[st.n - 1]] : [0, 0]; }
+function curSpan() { const [a, b] = extent(); return view.span === Infinity ? Math.max(b - a, 1) : view.span; }
+function viewRange() {
+  if (!view.follow) return [view.t0, view.t1];
+  const [a, b] = extent();
+  if (view.span === Infinity) return [a, Math.max(b, a + 1)];
+  const t1 = Math.max(b, a + view.span);
+  return [t1 - view.span, t1];
+}
+
+function niceStep(x) { const e = Math.pow(10, Math.floor(Math.log10(x))), f = x / e; return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * e; }
+const TSTEPS = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 14400, 28800, 86400];
+function fmtT(s, step) {
+  const neg = s < 0; s = Math.abs(s);
+  const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, sec = s % 60;
+  const dec = step < 0.1 ? 2 : step < 1 ? 1 : 0;
+  let ss = sec.toFixed(dec); if (parseFloat(ss) >= 60) ss = (0).toFixed(dec);
+  if (dec ? sec < 10 : Math.floor(sec) < 10) ss = '0' + ss;
+  return (neg ? '-' : '') + (h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`);
+}
+
+function envelope(arr, t, i0, i1, t0, t1, cols) {
+  const res = { raw: i1 - i0 <= cols * 2, lo: Infinity, hi: -Infinity };
+  if (res.raw) {
+    for (let j = i0; j < i1; j++) { const x = arr[j]; if (x === x) { if (x < res.lo) res.lo = x; if (x > res.hi) res.hi = x; } }
+    return res;
+  }
+  const mn = new Float32Array(cols).fill(NaN), mx = new Float32Array(cols), fs = new Float32Array(cols), ls = new Float32Array(cols);
+  const k = cols / (t1 - t0);
+  for (let j = i0; j < i1; j++) {
+    const x = arr[j]; if (x !== x) continue;
+    let c = Math.floor((t[j] - t0) * k); if (c < 0) c = 0; else if (c >= cols) c = cols - 1;
+    if (mn[c] !== mn[c]) { mn[c] = mx[c] = fs[c] = x; } else { if (x < mn[c]) mn[c] = x; if (x > mx[c]) mx[c] = x; }
+    ls[c] = x;
+    if (x < res.lo) res.lo = x; if (x > res.hi) res.hi = x;
+  }
+  Object.assign(res, { mn, mx, fs, ls });
+  return res;
+}
+
+function draw() {
+  dirty = false;
+  const W = cv.clientWidth, H = cv.clientHeight, dpr = window.devicePixelRatio || 1;
+  if (!W || !H) return;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const pw = W - PAD.l - PAD.r, ph = (H - PAD.t - PAD.b - PAD.g * 2) / 3;
+  if (pw < 20 || ph < 20) return;
+  const [t0, t1] = viewRange();
+  const st = S.store;
+  const i0 = Math.max(0, st.lower(t0) - 1), i1 = Math.min(st.n, st.lower(t1) + 1);
+  const xOf = (tt) => PAD.l + (tt - t0) / (t1 - t0) * pw;
+  const cols = Math.max(1, Math.floor(pw));
+  ctx.font = `11px ${C.mono}`;
+  ctx.textBaseline = 'middle';
+
+  // 시간 눈금
+  let tstep = TSTEPS.find((s) => s / (t1 - t0) * pw >= 86) || 86400;
+  const bottom = PAD.t + 3 * ph + 2 * PAD.g;
+  ctx.fillStyle = C.muted; ctx.textAlign = 'center';
+  const tticks = [];
+  for (let tt = Math.ceil(t0 / tstep) * tstep; tt <= t1 + 1e-9; tt += tstep) tticks.push(tt);
+  for (const tt of tticks) ctx.fillText(fmtT(tt, tstep), xOf(tt), bottom + 14);
+
+  // 선택 구간
+  if (sel) {
+    const a = Math.min(sel.a, sel.b), b = Math.max(sel.a, sel.b);
+    ctx.fillStyle = C.sel;
+    ctx.fillRect(Math.max(PAD.l, xOf(a)), PAD.t, Math.min(PAD.l + pw, xOf(b)) - Math.max(PAD.l, xOf(a)), bottom - PAD.t);
+  }
+
+  const yMaps = [];
+  PANELS.forEach((p, k) => {
+    const top = PAD.t + k * (ph + PAD.g);
+    const envs = p.series.map(([key]) => envelope(st[key], st.t, i0, i1, t0, t1, cols));
+    let lo = Math.min(...envs.map((e) => e.lo)), hi = Math.max(...envs.map((e) => e.hi));
+    if (!Number.isFinite(lo) || !Number.isFinite(hi)) { [lo, hi] = p.def; }
+    let span = hi - lo;
+    if (span < p.minSpan) { const m = (hi + lo) / 2; lo = m - p.minSpan / 2; hi = m + p.minSpan / 2; span = p.minSpan; }
+    lo -= span * 0.08; hi += span * 0.14;
+    const yOf = (v) => top + ph - (v - lo) / (hi - lo) * ph;
+    yMaps.push({ yOf, top, lo, hi, envs });
+
+    // 격자와 세로 눈금
+    const step = niceStep((hi - lo) / Math.max(2, Math.floor(ph / 40)));
+    const dec = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
+    ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.fillStyle = C.muted; ctx.textAlign = 'right';
+    ctx.beginPath();
+    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+      const y = Math.round(yOf(v)) + 0.5;
+      ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l + pw, y);
+      ctx.fillText(v.toFixed(dec), PAD.l - 7, y);
+    }
+    for (const tt of tticks) { const x = Math.round(xOf(tt)) + 0.5; ctx.moveTo(x, top); ctx.lineTo(x, top + ph); }
+    ctx.stroke();
+    ctx.strokeStyle = C.line; ctx.strokeRect(PAD.l + 0.5, top + 0.5, pw - 1, ph - 1);
+
+    // 선
+    ctx.save(); ctx.beginPath(); ctx.rect(PAD.l, top, pw, ph); ctx.clip();
+    p.series.forEach(([key, col], si) => {
+      const arr = st[key], e = envs[si];
+      ctx.strokeStyle = C[col]; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      if (e.raw) {
+        ctx.lineWidth = 1.6; let pen = false, prevT = -Infinity;
+        for (let j = i0; j < i1; j++) {
+          const x = arr[j]; if (x !== x) { pen = false; continue; }
+          const tt = st.t[j];
+          if (!pen || tt - prevT > 1.0) ctx.moveTo(xOf(tt), yOf(x)); else ctx.lineTo(xOf(tt), yOf(x));
+          pen = true; prevT = tt;
+        }
+      } else {
+        ctx.lineWidth = 1.2; let pen = false;
+        for (let c = 0; c < cols; c++) {
+          if (e.mn[c] !== e.mn[c]) { pen = false; continue; }
+          const x = PAD.l + c + 0.5;
+          if (!pen) ctx.moveTo(x, yOf(e.fs[c])); else ctx.lineTo(x, yOf(e.fs[c]));
+          ctx.lineTo(x, yOf(e.mn[c])); ctx.lineTo(x, yOf(e.mx[c])); ctx.lineTo(x, yOf(e.ls[c]));
+          pen = true;
+        }
+      }
+      ctx.stroke();
+    });
+    ctx.restore();
+
+    // 패널 이름
+    ctx.textAlign = 'left'; ctx.font = `600 11.5px ${C.mono}`;
+    let lx = PAD.l + 9;
+    p.series.forEach(([, col, label]) => { ctx.fillStyle = C[col]; ctx.fillText(label, lx, top + 12); lx += ctx.measureText(label).width + 10; });
+    ctx.fillStyle = C.muted; ctx.font = `11px ${C.mono}`; ctx.fillText(p.unit === 'V' ? '(V)' : '(A)', lx - 2, top + 12);
+  });
+
+  // 이벤트 위치
+  ctx.save(); ctx.setLineDash([3, 4]); ctx.strokeStyle = C.evt; ctx.lineWidth = 1; ctx.beginPath();
+  for (const e of S.events) { if (e.t < t0 || e.t > t1) continue; const x = Math.round(xOf(e.t)) + 0.5; ctx.moveTo(x, PAD.t); ctx.lineTo(x, bottom); }
+  ctx.stroke(); ctx.restore();
+
+  // 십자선
+  if (hoverT !== null && st.n && hoverT >= t0 && hoverT <= t1) {
+    let j = st.lower(hoverT);
+    if (j >= st.n) j = st.n - 1; if (j > 0 && Math.abs(st.t[j - 1] - hoverT) < Math.abs(st.t[j] - hoverT)) j--;
+    const x = Math.round(xOf(st.t[j])) + 0.5;
+    ctx.strokeStyle = C.cross; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, bottom); ctx.stroke();
+    ctx.font = `500 11.5px ${C.mono}`;
+    PANELS.forEach((p, k) => {
+      const { yOf, top } = yMaps[k];
+      const parts = [];
+      p.series.forEach(([key, col, label]) => {
+        const v = st[key][j]; if (v !== v) return;
+        ctx.fillStyle = C[col]; ctx.beginPath(); ctx.arc(x, yOf(v), 3.2, 0, Math.PI * 2); ctx.fill();
+        parts.push([`${label} ${v.toFixed(key === 'v' || key === 'i' ? 4 : 3)}`, col]);
+      });
+      if (!parts.length) return;
+      const widths = parts.map(([s]) => ctx.measureText(s).width);
+      const bw = widths.reduce((a, b) => a + b, 0) + 14 * parts.length + 4;
+      let bx = x + 10; if (bx + bw > PAD.l + pw - 4) bx = x - 10 - bw;
+      ctx.fillStyle = C.surface; ctx.globalAlpha = 0.92; ctx.fillRect(bx, top + 4, bw, 19); ctx.globalAlpha = 1;
+      ctx.strokeStyle = C.line; ctx.strokeRect(bx + 0.5, top + 4.5, bw - 1, 18);
+      let tx = bx + 8; ctx.textAlign = 'left';
+      parts.forEach(([s, col], n) => { ctx.fillStyle = C[col]; ctx.fillText(s, tx, top + 14); tx += widths[n] + 14; });
+    });
+    const lab = fmtT(st.t[j], 0.01), lw = ctx.measureText(lab).width + 12;
+    ctx.fillStyle = C.ink; ctx.fillRect(x - lw / 2, bottom + 4, lw, 18);
+    ctx.fillStyle = C.surface; ctx.textAlign = 'center'; ctx.fillText(lab, x, bottom + 13.5);
+  }
+
+  if (!st.n) {
+    ctx.fillStyle = C.muted; ctx.textAlign = 'center'; ctx.font = `13px ${C.mono}`;
+    ctx.fillText('데이터 없음 · 위에서 USB나 블루투스로 연결하세요', PAD.l + pw / 2, PAD.t + ph * 1.5 + PAD.g);
+  }
+}
+function loop() { if (dirty) draw(); requestAnimationFrame(loop); }
+new ResizeObserver(() => { dirty = true; }).observe(cv);
+requestAnimationFrame(loop);
+
+/* ───────────── 그래프 조작 ───────────── */
+function xToT(x) { const [t0, t1] = viewRange(); const pw = cv.clientWidth - PAD.l - PAD.r; return t0 + (x - PAD.l) / pw * (t1 - t0); }
+function freeze() { const [t0, t1] = viewRange(); view.follow = false; view.t0 = t0; view.t1 = t1; }
+function zoom(f, anchor) {
+  if (view.follow) { view.span = Math.min(1e7, Math.max(0.2, curSpan() * f)); }
+  else {
+    const a = anchor ?? (view.t0 + view.t1) / 2;
+    const span = Math.min(1e7, Math.max(0.2, (view.t1 - view.t0) * f)), r = (a - view.t0) / (view.t1 - view.t0);
+    view.t0 = a - r * span; view.t1 = view.t0 + span;
+  }
+  syncToolbar(); dirty = true;
+}
+function syncToolbar() {
+  document.querySelectorAll('#spanSeg button').forEach((b) => b.setAttribute('aria-pressed', String(view.follow && String(view.span) === b.dataset.span)));
+  document.querySelectorAll('#modeSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+  $('#btnLive').setAttribute('aria-pressed', String(view.follow));
+  $('#btnLive').textContent = view.follow ? '● 실시간' : '○ 실시간으로';
+  $('#btnLive').classList.toggle('primary', !view.follow);
+  cv.classList.toggle('selecting', mode === 'select');
+}
+
+let drag = null;
+cv.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  cv.setPointerCapture(e.pointerId);
+  const selecting = mode === 'select' || e.shiftKey;
+  if (selecting) { const t = xToT(e.offsetX); sel = { a: t, b: t }; drag = { kind: 'sel' }; }
+  else { freeze(); drag = { kind: 'pan', x: e.offsetX, t0: view.t0, t1: view.t1 }; cv.classList.add('dragging'); syncToolbar(); }
+  dirty = true;
+});
+cv.addEventListener('pointermove', (e) => {
+  hoverT = xToT(e.offsetX);
+  if (drag && drag.kind === 'pan') {
+    const pw = cv.clientWidth - PAD.l - PAD.r, dt = -(e.offsetX - drag.x) / pw * (drag.t1 - drag.t0);
+    view.t0 = drag.t0 + dt; view.t1 = drag.t1 + dt;
+  } else if (drag && drag.kind === 'sel') sel.b = hoverT;
+  dirty = true;
+});
+function endDrag() {
+  if (!drag) return;
+  if (drag.kind === 'sel') {
+    const [t0, t1] = viewRange();
+    if (Math.abs(sel.b - sel.a) < (t1 - t0) * 0.004) sel = null;
+    showSel();
+  }
+  drag = null; cv.classList.remove('dragging'); dirty = true;
+}
+cv.addEventListener('pointerup', endDrag);
+cv.addEventListener('pointercancel', endDrag);
+cv.addEventListener('pointerleave', () => { if (!drag) { hoverT = null; dirty = true; } });
+cv.addEventListener('wheel', (e) => { e.preventDefault(); zoom(Math.exp(e.deltaY * 0.0015), xToT(e.offsetX)); }, { passive: false });
+cv.addEventListener('dblclick', () => { view.follow = true; syncToolbar(); dirty = true; });
+
+document.querySelectorAll('#spanSeg button').forEach((b) => b.onclick = () => { view.follow = true; view.span = b.dataset.span === 'Infinity' ? Infinity : +b.dataset.span; syncToolbar(); dirty = true; });
+document.querySelectorAll('#modeSeg button').forEach((b) => b.onclick = () => { mode = b.dataset.mode; syncToolbar(); });
+$('#zoomIn').onclick = () => zoom(1 / 1.6);
+$('#zoomOut').onclick = () => zoom(1.6);
+$('#btnLive').onclick = () => { if (!view.follow) { view.span = Math.max(0.2, view.t1 - view.t0); view.follow = true; } syncToolbar(); dirty = true; };
+
+/* ───────────── 구간 분석 ───────────── */
+function rangeStats(a, b) {
+  const st = S.store, j0 = st.lower(a), j1 = st.lower(b);
+  const r = { n: j1 - j0, dur: b - a, wh: 0, mah: 0, T: 0, iv: 0, ii: 0, vmin: Infinity, vmax: -Infinity, imin: Infinity, imax: -Infinity, pmax: -Infinity, sv: 0, si: 0, cnt: 0 };
+  for (let j = j0; j < j1; j++) {
+    const v = st.v[j], i = st.i[j]; if (v !== v || i !== i) continue;
+    r.cnt++; r.sv += v; r.si += i;
+    if (v < r.vmin) r.vmin = v; if (v > r.vmax) r.vmax = v; if (i < r.imin) r.imin = i; if (i > r.imax) r.imax = i; if (v * i > r.pmax) r.pmax = v * i;
+    if (j > j0) {
+      const dt = st.t[j] - st.t[j - 1];
+      if (dt > 0 && dt < 1) { const v0 = st.v[j - 1], i0 = st.i[j - 1]; if (v0 === v0 && i0 === i0) { r.wh += (v * i + v0 * i0) / 2 * dt / 3600; r.mah += (i + i0) / 2 * dt / 3.6; r.T += dt; r.iv += (v + v0) / 2 * dt; r.ii += (i + i0) / 2 * dt; } }
+    }
+  }
+  return r;
+}
+function showSel() {
+  $('#selEmpty').hidden = !!sel; $('#selBody').hidden = !sel;
+  if (!sel) return;
+  const a = Math.min(sel.a, sel.b), b = Math.max(sel.a, sel.b), r = rangeStats(a, b);
+  const avgV = r.T > 0 ? r.iv / r.T : r.sv / r.cnt, avgI = r.T > 0 ? r.ii / r.T : r.si / r.cnt, avgP = r.T > 0 ? r.wh * 3600 / r.T : NaN;
+  const f = batFactor();
+  const rows = [
+    ['구간', `${fmtT(a, 0.01)} – ${fmtT(b, 0.01)}`],
+    ['길이', r.dur < 60 ? r.dur.toFixed(2) + ' s' : fmtDur(r.dur)],
+    ['샘플', r.cnt.toLocaleString('ko-KR')],
+    ['평균 VBUS', fmtNum(avgV, 4) + ' V'],
+    ['VBUS 최소 / 최대', `${fmtNum(r.vmin, 3)} / ${fmtNum(r.vmax, 3)}`],
+    ['평균 IBUS', fmtNum(avgI, 4) + ' A'],
+    ['IBUS 최소 / 최대', `${fmtNum(r.imin, 3)} / ${fmtNum(r.imax, 3)}`],
+    ['평균 전력', fmtNum(avgP, 3) + ' W'],
+    ['최대 전력', fmtNum(r.pmax, 3) + ' W'],
+    ['에너지', (r.wh * 1000).toFixed(2) + ' mWh'],
+    ['용량 (USB 기준)', r.mah.toFixed(2) + ' mAh'],
+    ['배터리 환산', Number.isFinite(f) ? (r.wh * f * 1000).toFixed(1) + ' mAh' : '—'],
+  ];
+  const kv = $('#selKv'); kv.textContent = '';
+  for (const [k, v] of rows) { const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = v; kv.append(dt, dd); }
+}
+$('#btnSelClear').onclick = () => { sel = null; showSel(); dirty = true; };
+$('#btnSelZoom').onclick = () => { if (!sel) return; const a = Math.min(sel.a, sel.b), b = Math.max(sel.a, sel.b), m = (b - a) * 0.08; view.follow = false; view.t0 = a - m; view.t1 = b + m; syncToolbar(); dirty = true; };
+$('#inNom').oninput = $('#inEff').oninput = () => { if (sel) showSel(); };
+
+/* ───────────── 버튼 ───────────── */
+$('#btnUsb').onclick = () => USB.connect();
+$('#btnBle').onclick = () => BLE.connect(false);
+$('#btnDemo').onclick = async () => { await stopSources(); Demo.start(); };
+$('#btnDisc').onclick = async () => { const was = USB.dev ? 'USB' : (BLE.dev || BLE.want) ? '블루투스' : null; if (was) addEvent(sessionNow(), 'info', was + ' 연결 해제', ''); await stopSources(); setPill(); };
+$('#btnRec').onclick = () => {
+  if (CFG.autoRec) {
+    CFG.autoRec = false; saveCfg(); syncSettings();
+    notice('자동 기록을 끄고 수동 기록으로 바꿨습니다.', 'info');
+  }
+  setRecording(!S.recording);
+};
+
+/* ───────────── 설정 화면 ───────────── */
+const SET_INPUTS = { inSps: 'sps', inStart: 'startMa', inStop: 'stopMa', inStopSec: 'stopSec', inVmax: 'vMax', inImax: 'iMax', inPmax: 'pMax' };
+function syncSettings() {
+  for (const [id, key] of Object.entries(SET_INPUTS)) $('#' + id).value = CFG[key];
+  $('#inAuto').checked = CFG.autoRec; $('#inAlarm').checked = CFG.alarm;
+  $('#autoFields').classList.toggle('off', !CFG.autoRec);
+  $('#alarmFields').classList.toggle('off', !CFG.alarm);
+  $('#inSave').value = CFG.saveMode;
+  const sm = Save.mode;
+  $('#setSum').textContent = `${CFG.sps} sps · 자동 기록 ${CFG.autoRec ? '켜짐' : '꺼짐'} · 알람 ${CFG.alarm ? '켜짐' : '꺼짐'} · 저장 ${sm === 'fs' ? 'PC 폴더' : sm === 'idb' ? '브라우저' : '꺼짐'}`;
+  Save.render();
+  setPill();
+}
+for (const [id, key] of Object.entries(SET_INPUTS)) {
+  $('#' + id).addEventListener('change', (e) => {
+    const x = parseFloat(e.target.value);
+    if (!Number.isFinite(x) || x < 0) { e.target.value = CFG[key]; return; }
+    if (key === 'sps') { Dec.flush(); Dec.reset(); addEvent(sessionNow(), 'info', `저장 속도 ${x} sps`, ''); }
+    CFG[key] = key === 'stopSec' ? Math.max(1, x) : x;
+    saveCfg(); syncSettings();
+  });
+}
+$('#inAuto').addEventListener('change', (e) => {
+  CFG.autoRec = e.target.checked; saveCfg();
+  if (CFG.autoRec && !(S.latest.i * 1000 >= CFG.startMa)) setRecording(false); // 전류가 올 때까지 대기
+  if (!CFG.autoRec && !S.recording) setRecording(true);
+  syncSettings();
+});
+$('#inAlarm').addEventListener('change', (e) => { CFG.alarm = e.target.checked; saveCfg(); syncSettings(); });
+$('#inSave').addEventListener('change', (e) => {
+  CFG.saveMode = e.target.value; saveCfg(); syncSettings();
+  if (Save.cur) notice('저장 위치 변경은 다음 연결부터 적용됩니다. 지금 기록은 원래 위치에 계속 저장합니다.', 'info');
+});
+$('#btnPickDir').onclick = () => Save.pickDir();
+$('#btnGrant').onclick = () => Save.grant();
+$('#btnAccReset').onclick = () => { S.acc.wh = 0; S.acc.mah = 0; S.acc.dur = 0; S.acc.since = sessionNow(); $('#accSince').textContent = fmtT(S.acc.since, 1) + ' 이후'; addEvent(sessionNow(), 'info', '적산 초기화', ''); };
+let clearArm = null;
+$('#btnClear').onclick = () => {
+  const b = $('#btnClear');
+  if (!clearArm) { b.textContent = '한 번 더 누르면 삭제'; clearArm = setTimeout(() => { clearArm = null; b.textContent = '전체 지우기'; }, 3000); return; }
+  clearTimeout(clearArm); clearArm = null; b.textContent = '전체 지우기';
+  const live = USB.dev ? 'usb' : BLE.want ? 'ble' : null;
+  if (Demo.timer) Demo.stop();
+  beginSession(live || 'none', live ? '기록을 지우고 새 파일 시작' : '');
+  setPill();
+};
+
+/* ───────────── CSV 형식 ───────────── */
+const fmtC = (x, d) => (x === x ? x.toFixed(d) : '');
+const p2 = (x) => String(x).padStart(2, '0');
+const DATA_HEADER = 'time_s,datetime,vbus_V,ibus_A,power_W,dp_V,dn_V,temp_C';
+const EV_HEADER = 'time_s,datetime,kind,text,detail';
+function stamp(d) { return `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}_${p2(d.getHours())}${p2(d.getMinutes())}${p2(d.getSeconds())}`; }
+function fmtDT(base, t) {
+  const d = new Date(base.getTime() + t * 1000);
+  return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3, '0')}`;
+}
+function rowCsv(j, base) {
+  const st = S.store, v = st.v[j], i = st.i[j], t = st.t[j];
+  return `${t.toFixed(3)},${fmtDT(base, t)},${fmtC(v, 5)},${fmtC(i, 5)},${fmtC(v * i, 5)},${fmtC(st.dp[j], 3)},${fmtC(st.dn[j], 3)},${fmtC(st.tc[j], 1)}`;
+}
+const q = (s) => /[",\n]/.test(s) ? '"' + String(s).replace(/"/g, '""') + '"' : String(s);
+function eventsCsv(events, base) {
+  return [EV_HEADER, ...events.map((e) => `${e.t.toFixed(3)},${fmtDT(base, e.t)},${e.kind},${q(e.text)},${q(e.detail || '')}`)].join('\n') + '\n';
+}
+function parseCsvLine(line) {
+  const out = []; let cur = '', inq = false;
+  for (let k = 0; k < line.length; k++) {
+    const ch = line[k];
+    if (inq) { if (ch === '"') { if (line[k + 1] === '"') { cur += '"'; k++; } else inq = false; } else cur += ch; }
+    else if (ch === '"') inq = true;
+    else if (ch === ',') { out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur); return out;
+}
+function parseEvents(text) {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  const head = parseCsvLine(lines[0]).map((s) => s.trim().toLowerCase());
+  const it = head.indexOf('time_s'), ik = head.indexOf('kind'), ix = head.indexOf('text'), id = head.indexOf('detail');
+  const out = [];
+  for (let r = 1; r < lines.length; r++) {
+    const c = parseCsvLine(lines[r]); const t = parseFloat(c[it]);
+    if (Number.isFinite(t)) out.push({ t, kind: CHIP[c[ik]] ? c[ik] : 'info', text: c[ix] || '', detail: c[id] || '' });
+  }
+  return out;
+}
+function fmtBytes(b) { return b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(1) + ' KB' : (b / 1048576).toFixed(2) + ' MB'; }
+function download(name, text) {
+  const url = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+/* ───────────── 브라우저 저장소 (IndexedDB) ───────────── */
+const IDB = {
+  db: null,
+  open() {
+    if (this.db) return Promise.resolve(this.db);
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('fnb58', 1);
+      r.onupgradeneeded = () => {
+        const d = r.result;
+        d.createObjectStore('kv');
+        d.createObjectStore('sessions', { keyPath: 'name' });
+        d.createObjectStore('chunks', { autoIncrement: true }).createIndex('session', 'session');
+      };
+      r.onsuccess = () => res(this.db = r.result); r.onerror = () => rej(r.error);
+    });
+  },
+  done(t) { return new Promise((res, rej) => { t.oncomplete = () => res(); t.onerror = t.onabort = () => rej(t.error); }); },
+  req(r) { return new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); },
+  async get(store, key) { const d = await this.open(); return this.req(d.transaction(store).objectStore(store).get(key)); },
+  async put(store, val, key) { const d = await this.open(); const t = d.transaction(store, 'readwrite'); key === undefined ? t.objectStore(store).put(val) : t.objectStore(store).put(val, key); return this.done(t); },
+  async all(store) { const d = await this.open(); return this.req(d.transaction(store).objectStore(store).getAll()); },
+  async chunks(name) { const d = await this.open(); return this.req(d.transaction('chunks').objectStore('chunks').index('session').getAll(name)); },
+  async del(name) {
+    const d = await this.open(); const t = d.transaction(['sessions', 'chunks'], 'readwrite');
+    t.objectStore('sessions').delete(name);
+    const cur = t.objectStore('chunks').index('session').openKeyCursor(IDBKeyRange.only(name));
+    cur.onsuccess = () => { const c = cur.result; if (c) { t.objectStore('chunks').delete(c.primaryKey); c.continue(); } };
+    return this.done(t);
+  },
+};
+
+/* ───────────── 자동 저장 ───────────── */
+const Save = {
+  fsOK: 'showDirectoryPicker' in window, fsBlocked: false,
+  dir: null, perm: 'none', cur: null, queue: [], working: false,
+  get mode() {
+    if (CFG.saveMode === 'off') return 'off';
+    if (CFG.saveMode === 'idb' || !this.fsOK || this.fsBlocked) return 'idb';
+    return 'fs';
+  },
+  async init() {
+    if (this.fsOK) {
+      try { this.dir = (await IDB.get('kv', 'dir')) || null; } catch (e) { this.dir = null; }
+      if (this.dir && this.dir.queryPermission) { try { this.perm = await this.dir.queryPermission({ mode: 'readwrite' }); } catch (e) { this.perm = 'prompt'; } }
+      else this.dir = null;
+    }
+    setInterval(() => { this.snapshot(false); if (this.queue.length) this.work(); this.render(); }, 1000);
+    const bye = () => this.snapshot(true);
+    addEventListener('pagehide', bye);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) bye(); });
+    this.render(); renderSaved();
+  },
+  start(date) {
+    const mode = this.mode;
+    if (mode === 'off') { this.cur = null; this.render(); return; }
+    this.cur = { name: 'fnb58_' + stamp(date), date, mode, written: 0, headerDone: false, evCount: -1, bytes: 0, lastSnap: 0, fh: null, efh: null, err: null, asked: false };
+    if (mode === 'fs' && (!this.dir || this.perm !== 'granted')) this.ask(this.cur);
+    if (mode === 'idb' && navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    this.render();
+  },
+  finish() {
+    if (!this.cur) return;
+    this.snapshot(true);
+    this.cur = null; this.work(); this.render();
+  },
+  ask(c) {
+    if (c.asked) return; c.asked = true;
+    const acts = [[this.dir ? '저장 허용' : '저장 폴더 선택', () => (this.dir ? this.grant() : this.pickDir())], ['브라우저에 저장', () => this.toIdb(c)]];
+    notice(this.dir
+      ? `자동 저장 폴더(${this.dir.name})에 쓰려면 권한을 다시 허용해야 합니다. 허용하면 연결 시점부터의 기록을 모두 씁니다.`
+      : '자동 저장할 PC 폴더를 골라 주세요. 고르면 연결 시점부터의 기록을 모두 씁니다.', 'warn', acts);
+  },
+  toIdb(c) { if (c && c.mode === 'fs') { c.mode = 'idb'; c.written = 0; c.headerDone = false; c.evCount = -1; c.bytes = 0; this.snapshot(true); } this.render(); },
+  async pickDir() {
+    try {
+      const d = await window.showDirectoryPicker({ id: 'fnb58', mode: 'readwrite', startIn: 'documents' });
+      this.dir = d; this.perm = 'granted';
+      try { await IDB.put('kv', d, 'dir'); } catch (e) { /* 다음에 다시 고르면 됨 */ }
+      const c = this.cur;
+      if (c && c.mode === 'fs') { c.fh = null; c.efh = null; c.written = 0; c.headerDone = false; c.evCount = -1; c.bytes = 0; this.snapshot(true); }
+    } catch (e) {
+      if (e.name === 'SecurityError') { this.fsBlocked = true; notice('이 환경에서는 PC 폴더에 저장할 수 없어 브라우저 안에 저장합니다.', 'warn'); if (this.cur) this.toIdb(this.cur); }
+      else if (e.name !== 'AbortError') notice('폴더를 선택할 수 없습니다. (' + e.message + ')', 'bad');
+    }
+    this.render(); syncSettings();
+  },
+  async grant() {
+    if (!this.dir) return this.pickDir();
+    try { this.perm = await this.dir.requestPermission({ mode: 'readwrite' }); } catch (e) { this.perm = 'prompt'; }
+    if (this.perm === 'granted') this.snapshot(true);
+    else notice('폴더 쓰기 권한이 없어 파일로 저장하지 못하고 있습니다. 설정의 ‘권한 허용’을 누르거나 ‘브라우저 안에 저장’으로 바꾸세요.', 'warn');
+    this.render();
+  },
+  // 새로 쌓인 행과 이벤트를 저장 작업으로 묶기 (데이터는 즉시 복사해 두므로 이후 화면을 지워도 안전)
+  snapshot(force) {
+    const c = this.cur; if (!c) return;
+    if (c.mode === 'fs' && (!this.dir || this.perm !== 'granted')) return;
+    const interval = c.bytes < 10e6 ? 3 : c.bytes < 60e6 ? 15 : 45; // 파일이 커질수록 덜 자주
+    if (!force && now() - c.lastSnap < interval) return;
+    const n = S.store.n, evN = S.events.length;
+    if (n <= c.written && evN === c.evCount) return;
+    let text = '';
+    if (n > c.written) {
+      const rows = c.headerDone ? [] : [DATA_HEADER];
+      for (let j = c.written; j < n; j++) rows.push(rowCsv(j, c.date));
+      text = rows.join('\n') + '\n'; c.headerDone = true; c.written = n;
+    }
+    const events = S.events.map((e) => ({ t: e.t, kind: e.kind, text: e.text, detail: e.detail || '' }));
+    const evText = evN !== c.evCount ? eventsCsv(events, c.date) : null;
+    c.evCount = evN; c.lastSnap = now();
+    this.queue.push({ c, text, evText, events, rows: n });
+    this.work();
+  },
+  async work() {
+    if (this.working) return; this.working = true;
+    while (this.queue.length) {
+      const job = this.queue[0], c = job.c;
+      try {
+        if (c.mode === 'fs') {
+          if (this.perm !== 'granted') break;
+          if (job.text) {
+            if (!c.fh) c.fh = await this.dir.getFileHandle(c.name + '.csv', { create: true });
+            const w = await c.fh.createWritable({ keepExistingData: true });
+            await w.seek(c.bytes); await w.write(job.text); await w.close();
+          }
+          if (job.evText) {
+            if (!c.efh) c.efh = await this.dir.getFileHandle(c.name + '_events.csv', { create: true });
+            const w = await c.efh.createWritable(); await w.write(job.evText); await w.close();
+          }
+        } else {
+          if (job.text) await IDB.put('chunks', { session: c.name, text: job.text });
+          await IDB.put('sessions', { name: c.name, start: c.date.getTime(), rows: job.rows, bytes: c.bytes + job.text.length, events: job.events });
+          c.idbSaved = true;
+        }
+        c.bytes += job.text.length; c.err = null; c.savedAt = now();
+        this.queue.shift();
+        if (c.mode === 'idb') renderSavedSoon();
+      } catch (e) {
+        c.err = e.message || String(e); console.warn('자동 저장', e);
+        if (e.name === 'NotAllowedError' || e.name === 'SecurityError') { this.perm = 'prompt'; c.asked = false; this.ask(c); }
+        break;
+      }
+    }
+    this.working = false; this.render();
+  },
+  render() {
+    const m = this.mode, c = this.cur;
+    $('#saveDirRow').hidden = m !== 'fs';
+    $('#saveDir').textContent = this.dir ? this.dir.name : '선택 안 됨';
+    $('#btnPickDir').textContent = this.dir ? '변경' : '폴더 선택';
+    $('#btnGrant').hidden = !(this.dir && this.perm !== 'granted');
+    let s;
+    if (m === 'off' && !c) s = '자동 저장이 꺼져 있습니다. 필요하면 아래 ‘기록 파일’에서 직접 저장하세요.';
+    else if (!c) s = m === 'fs' ? (this.dir ? '연결하면 이 폴더에 연결 시각 이름으로 새 파일을 만듭니다.' : '폴더를 미리 골라 두면 연결하자마자 저장을 시작합니다.') : '연결하면 브라우저 안에 새 기록을 만듭니다.';
+    else if (c.mode === 'fs' && (!this.dir || this.perm !== 'granted')) s = `${c.name}.csv · 폴더 권한을 기다리는 중 (허용하면 연결 시점부터 모두 씁니다)`;
+    else {
+      const ago = c.savedAt ? Math.max(0, Math.round(now() - c.savedAt)) + '초 전 저장' : '저장 준비 중';
+      s = `${c.mode === 'fs' ? '파일' : '브라우저'} · ${c.name}.csv · ${fmtBytes(c.bytes)} · ${ago}` + (c.err ? ` · 오류: ${c.err}` : '');
+    }
+    $('#saveStatus').textContent = s;
+    $('#saveStatus').classList.toggle('err', !!(c && c.err));
+    $('#dbgStatus').textContent = m === 'fs' && this.dir && this.perm === 'granted'
+      ? `디버그 로그 · ${Dbg.name} · ${fmtBytes(Dbg.bytes)}` + (Dbg.wErr ? ` · 오류: ${Dbg.wErr}` : '')
+      : `디버그 로그 · 폴더에 쓸 수 있게 되면 ${Dbg.name}로 저장합니다 (지금은 메모리에만)`;
+    $('#dbgStatus').classList.toggle('err', !!Dbg.wErr);
+    if (!this.fsOK || this.fsBlocked) {
+      $('#optAuto').textContent = 'PC 폴더 (미지원 → 브라우저)';
+    }
+  },
+};
+
+/* ───────────── 브라우저에 저장된 기록 목록 ───────────── */
+let savedTimer = null;
+function renderSavedSoon() { if (!savedTimer) savedTimer = setTimeout(() => { savedTimer = null; renderSaved(); }, 1500); }
+async function renderSaved() {
+  let list = [];
+  try { list = await IDB.all('sessions'); } catch (e) { return; }
+  list.sort((a, b) => b.start - a.start);
+  $('#savedPanel').hidden = !list.length;
+  $('#savedCount').textContent = list.length + '개';
+  const ul = $('#savedList'); ul.textContent = '';
+  for (const r of list) {
+    const live = Save.cur && Save.cur.name === r.name && Save.cur.mode === 'idb';
+    const li = document.createElement('li');
+    const nm = document.createElement('div'); nm.className = 'sv-name'; nm.textContent = r.name + (live ? '  ● 기록 중' : '');
+    const meta = document.createElement('div'); meta.className = 'sv-meta';
+    meta.textContent = `${new Date(r.start).toLocaleString('ko-KR')} · ${r.rows.toLocaleString('ko-KR')} 샘플 · ${fmtBytes(r.bytes || 0)} · 이벤트 ${(r.events || []).length}건`;
+    const row = document.createElement('div'); row.className = 'row'; row.style.marginTop = '6px';
+    const mk = (label, fn, cls) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn small' + (cls ? ' ' + cls : ''); b.textContent = label; b.onclick = fn; row.append(b); return b; };
+    const openB = mk('열기', () => openSaved(r.name));
+    mk('CSV 받기', () => downloadSaved(r.name));
+    const delB = mk('삭제', async () => {
+      if (!delB.dataset.arm) { delB.dataset.arm = '1'; delB.textContent = '한 번 더 누르면 삭제'; setTimeout(() => { delB.dataset.arm = ''; delB.textContent = '삭제'; }, 3000); return; }
+      await IDB.del(r.name); renderSaved();
+    }, 'danger');
+    if (live) { openB.disabled = true; delB.disabled = true; }
+    li.append(nm, meta, row); ul.append(li);
+  }
+}
+async function savedText(name) { const ch = await IDB.chunks(name); return ch.map((c) => c.text).join(''); }
+async function openSaved(name) {
+  const rec = await IDB.get('sessions', name); if (!rec) return;
+  await loadData(await savedText(name), name, rec.events || null);
+}
+async function downloadSaved(name) {
+  const rec = await IDB.get('sessions', name); if (!rec) return;
+  download(name + '.csv', await savedText(name));
+  if (rec.events && rec.events.length) setTimeout(() => download(name + '_events.csv', eventsCsv(rec.events, new Date(rec.start))), 400);
+}
+
+/* ───────────── 직접 저장 / 열기 ───────────── */
+$('#btnCsv').onclick = () => {
+  const st = S.store; if (!st.n) return notice('저장할 데이터가 없습니다.', 'info');
+  const out = [DATA_HEADER];
+  for (let j = 0; j < st.n; j++) out.push(rowCsv(j, S.startDate));
+  download(`fnb58_${stamp(S.startDate)}.csv`, out.join('\n') + '\n');
+};
+$('#btnEvCsv').onclick = () => {
+  if (!S.events.length) return notice('저장할 이벤트가 없습니다.', 'info');
+  download(`fnb58_${stamp(S.startDate)}_events.csv`, eventsCsv(S.events, S.startDate));
+};
+$('#btnOpen').onclick = () => $('#fileIn').click();
+$('#btnDbg').onclick = () => Dbg.download();
+$('#fileIn').onchange = async (e) => {
+  const files = [...e.target.files]; e.target.value = ''; if (!files.length) return;
+  let data = null, ev = null;
+  for (const f of files) {
+    const text = await f.text();
+    const first = (text.split(/\r?\n/, 1)[0] || '').toLowerCase();
+    if (first.includes('kind')) ev = ev || { f, text }; else data = data || { f, text };
+  }
+  if (!data) return notice('측정값 CSV가 없습니다. 이벤트 파일만 열 수는 없고, 같은 이름의 측정값 파일과 함께 골라야 합니다.', 'warn');
+  await loadData(data.text, data.f.name, ev ? parseEvents(ev.text) : null);
+};
+async function loadData(text, name, events) {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim() && !l.startsWith('#'));
+  if (lines.length < 2) return notice('CSV 파일에 데이터가 없습니다.', 'warn');
+  const head = lines[0].toLowerCase().split(/[,;\t]/).map((s) => s.trim());
+  const find = (...keys) => head.findIndex((h) => keys.some((k) => h.includes(k)));
+  const it = head.indexOf('time_s') >= 0 ? head.indexOf('time_s') : head.findIndex((h) => h.includes('time') && !h.includes('date'));
+  const ix = { t: it, dt: head.indexOf('datetime'), v: find('vbus', 'volt'), i: find('ibus', 'curr'), dp: find('dp', 'd+'), dn: find('dn', 'd-'), tc: find('temp') };
+  if (ix.v < 0 || ix.i < 0) return notice('전압·전류 열을 찾지 못했습니다. 이 앱에서 저장한 CSV 형식(time_s, vbus_V, ibus_A …)을 사용하세요.', 'warn');
+  await stopSources();
+  beginSession('file');
+  const num = (cells, k) => (k >= 0 && cells[k] !== undefined && cells[k] !== '' ? parseFloat(cells[k]) : NaN);
+  S.importing = true; setRecording(true);
+  for (let r = 1; r < lines.length; r++) {
+    const c = lines[r].split(/[,;\t]/);
+    const t = ix.t >= 0 ? parseFloat(c[ix.t]) : (r - 1) * 0.01;
+    if (!Number.isFinite(t)) continue;
+    if (r === 1 && ix.dt >= 0) { const d = new Date((c[ix.dt] || '').replace(' ', 'T')); if (!isNaN(d)) S.startDate = new Date(d.getTime() - t * 1000); }
+    ingest(t, num(c, ix.v), num(c, ix.i), num(c, ix.dp), num(c, ix.dn), num(c, ix.tc));
+  }
+  S.importing = false;
+  if (events) { S.events = events.slice().sort((a, b) => a.t - b.t); evDirty = true; }
+  view.follow = true; view.span = Infinity; syncToolbar(); setPill(); dirty = true;
+  notice(`${name}: 샘플 ${S.store.n.toLocaleString('ko-KR')}개${events ? `, 이벤트 ${events.length}건` : ''}을 불러왔습니다.`, 'info');
+}
+
+/* ───────────── 시작 ───────────── */
+(function init() {
+  Dbg.init();
+  const hasHid = 'hid' in navigator, hasBle = !!navigator.bluetooth;
+  if (!hasHid) { $('#btnUsb').disabled = true; $('#btnUsb').title = 'USB 연결은 PC용 크롬·엣지에서만 됩니다'; }
+  if (!hasBle) { $('#btnBle').disabled = true; $('#btnBle').title = '이 브라우저는 Web Bluetooth를 지원하지 않습니다'; }
+  if (!window.isSecureContext) notice('이 주소는 보안 연결이 아니어서 장치 연결이 막힙니다. https 주소로 열거나 PC에서 파일로 직접 여세요.', 'warn');
+  else if (!hasHid && !hasBle) notice('이 브라우저는 USB·블루투스 장치 연결을 지원하지 않습니다. 크롬이나 엣지로 여세요. 지금은 데모 데이터만 볼 수 있습니다.', 'warn');
+  if (hasBle) {
+    const s = document.createElement('span'); s.style.cssText = 'font-size:12px;color:var(--muted)';
+    s.innerHTML = '블루투스 목록에 테스터가 안 보이면 ';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'linkbtn'; b.textContent = '모든 기기 표시';
+    b.onclick = () => BLE.connect(true); s.append(b);
+    $('#notices').before(Object.assign(document.createElement('div'), { style: 'display:flex;justify-content:flex-end;margin:-6px 0 10px' })); $('#notices').previousElementSibling.append(s);
+  }
+  syncToolbar();
+  Demo.start();
+  syncSettings();
+  Save.init();
+})();
+
+// 테스트용 노출
+window.__fnb = { Save, IDB, loadData, setPill, crc8, crc16x, hidCmd, BLE, USB, S, infer, Demo, CFG, Alarm, Auto, Dbg };
+</script>
+</body>
+</html>
