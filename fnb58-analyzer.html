@@ -151,7 +151,9 @@ details.panel[open]>summary{margin-bottom:12px}
 .set-group h3{margin:0 0 8px;font-size:12.5px;font-weight:600}
 .check{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--ink)}
 .check input{accent-color:var(--accent);width:15px;height:15px;margin:0}
-.note{margin:8px 0 0;font-size:12px;color:var(--muted);line-height:1.5}
+.set-group h3[title]{cursor:help}
+.set-group h3[title]::after{content:'ⓘ';margin-left:5px;font-weight:400;color:var(--muted)}
+details.panel[open]>summary .aside-note{display:none}
 .fields label{max-width:100%}
 .fields select{max-width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);font-family:var(--font-mono);font-size:13px}
 .fields.off{opacity:.5}
@@ -160,6 +162,7 @@ details.panel[open]>summary{margin-bottom:12px}
 
 .saveinfo{margin-top:10px;font-size:12.5px;display:flex;flex-direction:column;gap:4px}
 #saveStatus,#dbgStatus{color:var(--muted);word-break:break-all}
+#saveStatus:empty,#dbgStatus:empty{display:none}
 #saveStatus.err,#dbgStatus.err{color:var(--bad)}
 .saved{list-style:none;margin:0;padding:0;max-height:320px;overflow:auto}
 .saved li{padding:9px 0;border-bottom:1px solid var(--line)}
@@ -236,9 +239,8 @@ footer a{color:var(--accent)}
     <details class="panel" id="setPanel" open>
       <summary><h2>설정</h2><span class="aside-note" id="setSum"></span></summary>
       <div class="set-group">
-        <h3>기록 속도</h3>
+        <h3 title="테스터는 USB로 항상 100 sps를 보냅니다. 낮추면 그 간격의 평균값을 저장합니다. 이벤트 감지·적산·알람은 원본 데이터로 계산합니다."><label for="inSps">저장 샘플 속도</label></h3>
         <div class="fields">
-          <label for="inSps">저장 샘플 속도
             <select id="inSps">
               <option value="100">100 sps (원본)</option>
               <option value="50">50 sps</option>
@@ -247,44 +249,39 @@ footer a{color:var(--accent)}
               <option value="5">5 sps</option>
               <option value="2">2 sps</option>
               <option value="1">1 sps</option>
-            </select></label>
+            </select>
         </div>
-        <p class="note">테스터는 USB로 항상 100 sps를 보냅니다. 속도를 낮추면 그 간격의 평균값으로 저장해 그래프와 CSV가 가벼워집니다. 이벤트 감지, 적산, 알람은 속도와 상관없이 원본 데이터로 계산합니다.</p>
       </div>
       <div class="set-group">
-        <h3><label class="check" for="inAuto"><input type="checkbox" id="inAuto">자동 기록</label></h3>
+        <h3 title="전류가 시작 전류 이상이면 기록을 시작하고, 정지 전류 미만이 정지 시간 동안 이어지면 멈춥니다. 정지 전류가 0이면 자동으로 멈추지 않습니다."><label class="check" for="inAuto"><input type="checkbox" id="inAuto">자동 기록</label></h3>
         <div class="fields" id="autoFields">
           <label for="inStart">시작 전류 (mA)<input id="inStart" type="number" step="10" min="0" value="50"></label>
           <label for="inStop">정지 전류 (mA)<input id="inStop" type="number" step="10" min="0" value="0"></label>
           <label for="inStopSec">정지 시간 (초)<input id="inStopSec" type="number" step="1" min="1" value="5"></label>
         </div>
-        <p class="note">전류가 시작 전류 이상이 되면 기록을 시작하고, 정지 전류 미만이 정지 시간 동안 이어지면 멈춥니다. 정지 전류가 0이면 자동으로 멈추지 않습니다.</p>
       </div>
       <div class="set-group">
-        <h3><label class="check" for="inAlarm"><input type="checkbox" id="inAlarm">알람</label></h3>
+        <h3 title="값을 넘으면 해당 측정값이 빨갛게 바뀌고, 경고음과 함께 이벤트에 남습니다."><label class="check" for="inAlarm"><input type="checkbox" id="inAlarm">알람</label></h3>
         <div class="fields" id="alarmFields">
           <label for="inVmax">VBUS 최대 (V)<input id="inVmax" type="number" step="0.1" min="0" value="24"></label>
           <label for="inImax">IBUS 최대 (A)<input id="inImax" type="number" step="0.1" min="0" value="7"></label>
           <label for="inPmax">전력 최대 (W)<input id="inPmax" type="number" step="1" min="0" value="168"></label>
         </div>
-        <p class="note">값을 넘으면 해당 측정값이 빨갛게 표시되고, 경고음과 함께 이벤트 목록에 남습니다.</p>
       </div>
       <div class="set-group">
-        <h3>자동 저장</h3>
+        <h3 title="연결할 때마다 fnb58_날짜_시각.csv(측정값)와 _events.csv(이벤트)를 새로 만들고 기록하는 동안 이어 씁니다. 디버그 로그도 같은 폴더에 씁니다."><label for="inSave">자동 저장</label></h3>
         <div class="fields">
-          <label for="inSave">저장 위치
             <select id="inSave">
               <option value="auto" id="optAuto">PC 폴더 (안 되면 브라우저)</option>
               <option value="idb">브라우저 안에 저장</option>
               <option value="off">끄기</option>
-            </select></label>
+            </select>
         </div>
         <div class="saveinfo">
-          <div id="saveDirRow">저장 폴더: <b id="saveDir">선택 안 됨</b> <button class="linkbtn" id="btnPickDir" type="button">폴더 선택</button> <button class="linkbtn" id="btnGrant" type="button" hidden>권한 허용</button></div>
+          <div id="saveDirRow">폴더 <b id="saveDir">선택 안 됨</b> <button class="linkbtn" id="btnPickDir" type="button">폴더 선택</button> <button class="linkbtn" id="btnGrant" type="button" hidden>권한 허용</button></div>
           <div id="saveStatus"></div>
           <div id="dbgStatus"></div>
         </div>
-        <p class="note">연결할 때마다 연결 시각으로 <code>fnb58_날짜_시각.csv</code>(측정값)와 <code>_events.csv</code>(이벤트)를 새로 만들고, 기록하는 동안 계속 이어 씁니다. 브라우저에 저장한 기록은 아래 목록에서 다시 열거나 CSV로 받을 수 있습니다.</p>
       </div>
     </details>
 
@@ -307,7 +304,7 @@ footer a{color:var(--accent)}
 
     <section class="panel" aria-labelledby="hSel">
       <h2 id="hSel">구간 분석</h2>
-      <p class="empty" id="selEmpty">그래프에서 ‘구간 선택’ 후 드래그하면 그 구간의 평균, 최소·최대, 에너지를 계산합니다.</p>
+      <p class="empty" id="selEmpty">‘구간 선택’ 후 그래프를 드래그하세요.</p>
       <div id="selBody" hidden>
         <dl class="kv" id="selKv"></dl>
         <div class="row"><button class="btn small" id="btnSelZoom" type="button">이 구간 확대</button><button class="btn small" id="btnSelClear" type="button">선택 해제</button></div>
@@ -316,7 +313,7 @@ footer a{color:var(--accent)}
 
     <section class="panel" aria-labelledby="hEv">
       <h2 id="hEv">이벤트 <span class="aside-note" id="evCount">0건</span></h2>
-      <p class="empty" id="evEmpty">QC 전압 요청 펄스, VBUS 레벨 변화, 전류 시작·중지, 충전 방식 변화를 자동으로 기록합니다.</p>
+      <p class="empty" id="evEmpty" title="QC 전압 요청, VBUS 레벨 변화, 전류 시작·중지, 충전 방식 변화를 자동으로 기록합니다.">아직 감지된 이벤트가 없습니다.</p>
       <ul class="events" id="evList"></ul>
     </section>
 
@@ -325,12 +322,11 @@ footer a{color:var(--accent)}
       <div class="row" style="margin-top:0">
         <button class="btn small" id="btnCsv" type="button">측정값 CSV 저장</button>
         <button class="btn small" id="btnEvCsv" type="button">이벤트 CSV 저장</button>
-        <button class="btn small" id="btnOpen" type="button">CSV 열기</button>
+        <button class="btn small" id="btnOpen" type="button" title="측정값 파일과 _events.csv를 함께 고르면 이벤트도 같이 불러옵니다">CSV 열기</button>
         <button class="btn small" id="btnDbg" type="button">디버그 로그 저장</button>
         <button class="btn small danger" id="btnClear" type="button">전체 지우기</button>
         <input type="file" id="fileIn" accept=".csv,text/csv" multiple hidden>
       </div>
-      <p class="note">열 때 측정값 파일과 <code>_events.csv</code>를 함께 고르면 이벤트도 같이 불러옵니다.</p>
     </section>
 
     <section class="panel" id="savedPanel" aria-labelledby="hSaved" hidden>
@@ -350,7 +346,7 @@ footer a{color:var(--accent)}
 <script>
 'use strict';
 // 버전 (헤더와 디버그 로그에 표시)
-const APP = { version: '1.0', build: 2 };
+const APP = { version: '1.0', build: 3 };
 const APP_VER = `v${APP.version} · build ${APP.build}`;
 const $ = (s) => document.querySelector(s);
 const now = () => performance.now() / 1000;
@@ -1742,19 +1738,18 @@ const Save = {
     $('#saveDir').textContent = this.dir ? this.dir.name : '선택 안 됨';
     $('#btnPickDir').textContent = this.dir ? '변경' : '폴더 선택';
     $('#btnGrant').hidden = !(this.dir && this.perm !== 'granted');
-    let s;
-    if (m === 'off' && !c) s = '자동 저장이 꺼져 있습니다. 필요하면 아래 ‘기록 파일’에서 직접 저장하세요.';
-    else if (!c) s = m === 'fs' ? (this.dir ? '연결하면 이 폴더에 연결 시각 이름으로 새 파일을 만듭니다.' : '폴더를 미리 골라 두면 연결하자마자 저장을 시작합니다.') : '연결하면 브라우저 안에 새 기록을 만듭니다.';
-    else if (c.mode === 'fs' && (!this.dir || this.perm !== 'granted')) s = `${c.name}.csv · 폴더 권한을 기다리는 중 (허용하면 연결 시점부터 모두 씁니다)`;
-    else {
-      const ago = c.savedAt ? Math.max(0, Math.round(now() - c.savedAt)) + '초 전 저장' : '저장 준비 중';
-      s = `${c.mode === 'fs' ? '파일' : '브라우저'} · ${c.name}.csv · ${fmtBytes(c.bytes)} · ${ago}` + (c.err ? ` · 오류: ${c.err}` : '');
+    // 기록 중일 때만 파일 이름·크기·저장 시각을 보인다 (대기 중에는 폴더 줄과 저장 위치만으로 충분)
+    let s = '';
+    if (c && c.mode === 'fs' && (!this.dir || this.perm !== 'granted')) s = `${c.name}.csv · 폴더 권한 대기`;
+    else if (c) {
+      const ago = c.savedAt ? Math.max(0, Math.round(now() - c.savedAt)) + '초 전' : '준비 중';
+      s = `${c.mode === 'idb' ? '브라우저 · ' : ''}${c.name}.csv · ${fmtBytes(c.bytes)} · ${ago}` + (c.err ? ` · 오류: ${c.err}` : '');
     }
     $('#saveStatus').textContent = s;
     $('#saveStatus').classList.toggle('err', !!(c && c.err));
-    $('#dbgStatus').textContent = m === 'fs' && this.dir && this.perm === 'granted'
-      ? `디버그 로그 · ${Dbg.name} · ${fmtBytes(Dbg.bytes)}` + (Dbg.wErr ? ` · 오류: ${Dbg.wErr}` : '')
-      : `디버그 로그 · 폴더에 쓸 수 있게 되면 ${Dbg.name}로 저장합니다 (지금은 메모리에만)`;
+    $('#dbgStatus').textContent = m === 'fs' && this.dir && this.perm === 'granted' && Dbg.bytes
+      ? `${Dbg.name} · ${fmtBytes(Dbg.bytes)}` + (Dbg.wErr ? ` · 오류: ${Dbg.wErr}` : '')
+      : Dbg.wErr ? `디버그 로그 오류: ${Dbg.wErr}` : '';
     $('#dbgStatus').classList.toggle('err', !!Dbg.wErr);
     if (!this.fsOK || this.fsBlocked) {
       $('#optAuto').textContent = 'PC 폴더 (미지원 → 브라우저)';
